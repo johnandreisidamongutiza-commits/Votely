@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}Results{% endblock %}
+{% block page_title %}Results{% endblock %}
+
+{% block head %}
+<style>
+    .live-badge { display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:5px 12px;border-radius:6px;background:rgba(239,68,68,0.12);color:#ef4444;border:1px solid rgba(239,68,68,0.3); }
+    .live-dot { width:7px;height:7px;background:#ef4444;border-radius:50%;animation:livepulse 1.5s infinite; }
+    @keyframes livepulse { 0%,100%{opacity:1;}50%{opacity:0.3;} }
+    .final-badge { display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:5px 12px;border-radius:6px;background:rgba(100,116,139,0.12);color:var(--text-muted);border:1px solid rgba(100,116,139,0.2); }
+    .refresh-bar { display:flex;align-items:center;gap:10px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);color:#3b82f6;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:20px; }
+    .refresh-bar svg { width:15px;height:15px;animation:spin 2s linear infinite;flex-shrink:0; }
+    @keyframes spin { from{transform:rotate(0deg);}to{transform:rotate(360deg);} }
+    .refresh-countdown { margin-left:auto;font-size:12px;color:#60a5fa; }
+    .turnout-bar-wrap { background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 24px;margin-bottom:24px;box-shadow:var(--shadow); }
+    .turnout-bar-label { display:flex;justify-content:space-between;font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px; }
+    .turnout-bar { background:var(--border);border-radius:10px;height:10px;overflow:hidden; }
+    .turnout-bar-fill { height:100%;border-radius:10px;background:var(--gradient);transition:width 0.8s ease; }
+    #election-status-badge { margin-left:10px; }
+
+    .election-list { position:relative;max-height:320px;overflow:auto;background:var(--card);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 40px rgba(15,23,42,0.08);margin-top:10px;padding:10px; }
+    .election-section { margin-bottom:12px; }
+    .election-section-label { color:var(--text-muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.14em;margin-bottom:8px; }
+    .election-choice { width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;border:none;background:transparent;color:var(--text);padding:12px 14px;border-radius:10px;cursor:pointer;text-align:left;transition:background 0.2s ease; }
+    .election-choice:hover, .election-choice.selected { background:rgba(59,130,246,0.08); }
+    .election-choice span { overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+    .status-pill { border-radius:999px;padding:4px 10px;font-size:11px;font-weight:700;white-space:nowrap;text-transform:capitalize; }
+    .status-pill.active { color:#16a34a;background:rgba(34,197,94,0.12);border:1px solid rgba(34,197,94,0.18); }
+    .status-pill.ended { color:#475569;background:rgba(148,163,184,0.14);border:1px solid rgba(148,163,184,0.2); }
+    .empty-list { color:var(--text-muted);font-size:14px;padding:16px;text-align:center; }
+    .selected-election-summary { display:flex;align-items:center;gap:10px;color:var(--text-muted);font-size:14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h2>Election Results</h2>
+        <p>View vote counts and analytics per election</p>
+    </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+    <div class="card-header" style="align-items:flex-start; gap:16px;">
+        <div>
+            <h3>Search Election</h3>
+            <p class="card-desc">Type any election title or keyword to narrow the list.</p>
+        </div>
+        <div class="selected-election-summary">
+            <span id="selectedElectionLabel">No election selected</span>
+            <span id="election-status-badge"></span>
+        </div>
+    </div>
+    <div class="filter-bar">
+        <div class="search-input-wrap" id="electionSearchInputWrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="electionSearchInput" placeholder="Search elections..." autocomplete="off" oninput="updateElectionList()" />
+        </div>
+    </div>
+    <div class="election-list" id="electionList"></div>
+
+    <div id="select-msg">
+        <div class="empty-state">
+            <div class="empty-state-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </div>
+            <h4>No election selected</h4>
+            <p>Choose an election above to view its results and analytics.</p>
+        </div>
+    </div>
+</div>
+
+<div id="results-data-container" style="display:none;">
+    <div id="refresh-bar-wrap" style="display:none;">
+        <div class="refresh-bar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36M20.49 15a9 9 0 0 1-14.85 3.36"/></svg>
+            Results update automatically
+            <span class="refresh-countdown" id="refresh-countdown">Refreshing in 15s</span>
+        </div>
+    </div>
+    <div class="stats-row" style="margin-bottom:20px;">
+        <div class="stat-card total">
+            <div class="stat-num" id="stat-voted">-</div>
+            <div class="stat-label">Voters Participated</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num" id="stat-total" style="color:var(--text-muted);">-</div>
+            <div class="stat-label">Registered Voters</div>
+        </div>
+        <div class="stat-card active-s">
+            <div class="stat-num" id="stat-turnout">-</div>
+            <div class="stat-label">Voter Turnout</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-num" id="stat-total-votes" style="color:#8b5cf6;">-</div>
+            <div class="stat-label">Total Votes Cast</div>
+        </div>
+    </div>
+    <div class="turnout-bar-wrap">
+        <div class="turnout-bar-label">
+            <span>Voter Turnout</span>
+            <span id="turnout-pct-label">0%</span>
+        </div>
+        <div class="turnout-bar">
+            <div class="turnout-bar-fill" id="turnout-bar-fill" style="width:0%"></div>
+        </div>
+    </div>
+    <div id="results-search-wrap" style="display:none;margin-bottom:16px;">
+        <div class="search-input-wrap" style="max-width:340px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="results-search" placeholder="Search candidate..." oninput="filterCandidates()">
+        </div>
+    </div>
+    <div id="positions-container"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const electionsData = {{ elections | tojson }};
+    let refreshInterval = null;
+    let countdown = 15;
+    let selectedElectionId = null;
+
+    function createStatusBadge(status) {
+        return status === 'active'
+            ? '<span class="status-pill active">Active</span>'
+            : '<span class="status-pill ended">Ended</span>';
+    }
+
+    function renderElectionList(filter = '') {
+        const q = filter.toLowerCase().trim();
+        const active = [];
+        const ended = [];
+
+        electionsData.forEach(e => {
+            const title = String(e.title).toLowerCase();
+            if (!q || title.includes(q)) {
+                if (e.status === 'active') active.push(e);
+                else ended.push(e);
+            }
+        });
+
+        const sections = [];
+        if (active.length) {
+            sections.push(`<div class="election-section"><div class="election-section-label">Active Elections</div>${active.map(renderElectionItem).join('')}</div>`);
+        }
+        if (ended.length) {
+            sections.push(`<div class="election-section"><div class="election-section-label">Ended Elections</div>${ended.map(renderElectionItem).join('')}</div>`);
+        }
+        if (!sections.length) {
+            sections.push('<div class="empty-list">No elections match your search.</div>');
+        }
+
+        const electionList = document.getElementById('electionList');
+        electionList.innerHTML = sections.join('');
+
+        if (selectedElectionId) {
+            const selectedBtn = electionList.querySelector(`[data-election-id="${selectedElectionId}"]`);
+            if (selectedBtn) selectedBtn.classList.add('selected');
+        }
+    }
+
+    function renderElectionItem(election) {
+        return `<button type="button" class="election-choice" data-election-id="${election.id}" onclick="selectElection(${election.id})">
+            <span>${election.title}</span>
+            ${createStatusBadge(election.status)}
+        </button>`;
+    }
+
+    function updateElectionList() {
+        const searchValue = document.getElementById('electionSearchInput').value;
+        if (selectedElectionId) {
+            const selected = electionsData.find(e => String(e.id) === String(selectedElectionId));
+            if (!selected || selected.title !== searchValue) {
+                selectedElectionId = null;
+                document.getElementById('selectedElectionLabel').textContent = 'No election selected';
+                document.getElementById('election-status-badge').innerHTML = '';
+            }
+        }
+        renderElectionList(searchValue);
+    }
+
+    function selectElection(id) {
+        const election = electionsData.find(e => String(e.id) === String(id));
+        if (!election) return;
+
+        selectedElectionId = election.id;
+        document.getElementById('electionSearchInput').value = election.title;
+        document.getElementById('selectedElectionLabel').textContent = election.title;
+        document.getElementById('election-status-badge').innerHTML = createStatusBadge(election.status);
+        renderElectionList(election.title);
+        loadResults();
+    }
+
+    async function loadResults() {
+        const electionId = selectedElectionId;
+        const badgeEl = document.getElementById('election-status-badge');
+
+        if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+
+        if (!electionId) {
+            document.getElementById('results-data-container').style.display = 'none';
+            document.getElementById('select-msg').style.display = 'block';
+            document.getElementById('results-search-wrap').style.display = 'none';
+            badgeEl.innerHTML = '';
+            return;
+        }
+
+        const selected = electionsData.find(e => String(e.id) === String(electionId));
+        const isActive = selected && selected.status === 'active';
+
+        badgeEl.innerHTML = isActive
+            ? '<span class="live-badge"><span class="live-dot"></span>LIVE</span>'
+            : '<span class="final-badge">Final Results</span>';
+
+        document.getElementById('refresh-bar-wrap').style.display = isActive ? 'block' : 'none';
+
+        await fetchAndRender(electionId);
+
+        if (isActive) {
+            countdown = 15;
+            refreshInterval = setInterval(() => {
+                countdown--;
+                const el = document.getElementById('refresh-countdown');
+                if (el) el.textContent = `Refreshing in ${countdown}s`;
+                if (countdown <= 0) {
+                    countdown = 15;
+                    fetchAndRender(electionId);
+                }
+            }, 1000);
+        }
+    }
+
+    async function fetchAndRender(electionId) {
+        const data = await fetch(`/admin/results-data/${electionId}`).then(r => r.json());
+        if (data.error) return;
+
+        document.getElementById('stat-voted').textContent       = data.total_participated;
+        document.getElementById('stat-total').textContent       = data.total_voters;
+        document.getElementById('stat-turnout').textContent     = data.turnout + '%';
+        document.getElementById('stat-total-votes').textContent = data.total_votes;
+        document.getElementById('turnout-pct-label').textContent = data.turnout + '%';
+
+        const bar = document.getElementById('turnout-bar-fill');
+        bar.style.width = data.turnout + '%';
+
+        let html = '';
+        data.positions.forEach(pos => {
+            html += `<div class="result-position-card">
+                <div class="result-position-header">
+                    <strong>${pos.name}</strong>
+                    ${pos.winner
+                        ? `<span class="badge badge-active"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg> ${pos.winner}</span>`
+                        : `<span style="color:var(--text-muted);font-size:13px;">No votes yet</span>`}
+                </div>`;
+            pos.candidates.forEach((c, i) => {
+                const isWinner = i === 0 && pos.winner;
+                const photo = c.photo
+                    ? `<img src="/admin/uploads/${c.photo}" class="result-photo">`
+                    : `<div class="result-initials">${c.name.split(' ').map(n=>n[0]).join('')}</div>`;
+                html += `<div class="result-candidate-row${isWinner ? ' winner' : ''}">
+                    ${photo}
+                    <div class="result-bar-wrap">
+                        <div class="result-name">${c.name}${isWinner ? ' <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-left:3px;"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>' : ''}</div>
+                        <div class="result-bar-bg">
+                            <div class="result-bar-fill${isWinner ? ' winner-fill' : ''}" style="width:${c.percentage}%"></div>
+                        </div>
+                    </div>
+                    <div class="result-votes">
+                        <strong>${c.vote_count}</strong>
+                        <span>${c.percentage}%</span>
+                    </div>
+                </div>`;
+            });
+            html += `</div>`;
+        });
+        document.getElementById('positions-container').innerHTML = html;
+        document.getElementById('results-data-container').style.display = 'block';
+        document.getElementById('select-msg').style.display = 'none';
+        document.getElementById('results-search-wrap').style.display = 'block';
+        document.getElementById('results-search').value = '';
+    }
+
+    function filterCandidates() {
+        const q = document.getElementById('results-search').value.toLowerCase().trim();
+        document.querySelectorAll('.result-position-card').forEach(card => {
+            let anyVisible = false;
+            card.querySelectorAll('.result-candidate-row').forEach(row => {
+                const name = row.querySelector('.result-name');
+                const match = !q || (name && name.textContent.toLowerCase().includes(q));
+                row.style.display = match ? '' : 'none';
+                if (match) anyVisible = true;
+            });
+            card.style.display = anyVisible ? '' : 'none';
+        });
+    }
+
+    renderElectionList();
+    const params = new URLSearchParams(window.location.search);
+    const preselect = params.get('election');
+    if (preselect) {
+        selectElection(preselect);
+    }
+</script>
+{% endblock %}

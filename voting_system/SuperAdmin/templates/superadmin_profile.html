@@ -1,0 +1,382 @@
+{% extends 'superadmin_base.html' %}
+{% block title %}My Profile — Superadmin{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block head %}
+<style>
+    /* ── Top hero ── */
+    .profile-hero {
+        background: var(--card); border: 1px solid var(--border);
+        border-radius: var(--radius); box-shadow: var(--shadow);
+        padding: 24px 28px; margin-bottom: 20px;
+        display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    }
+    .hero-avatar-wrap { position: relative; flex-shrink: 0; }
+    .hero-avatar { width: 72px; height: 72px; border-radius: 50%; object-fit: cover; border: 3px solid var(--border); display: block; }
+    .hero-initials { width: 72px; height: 72px; border-radius: 50%; background: var(--gradient); color: #fff; font-size: 24px; font-weight: 800; display: flex; align-items: center; justify-content: center; border: 3px solid var(--border); flex-shrink: 0; }
+    .hero-info { flex: 1; min-width: 0; }
+    .hero-info p { font-size: 12px; color: var(--text-muted); margin: 0 0 8px; }
+    .hero-btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .photo-upload-btn { padding: 7px 14px; background: var(--gradient); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity 0.18s; }
+    .photo-upload-btn:hover { opacity: 0.88; }
+    .photo-remove-btn { padding: 7px 14px; background: transparent; color: #ef4444; border: 1.5px solid rgba(239,68,68,0.3); border-radius: var(--radius-sm); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .photo-remove-btn:hover { background: rgba(239,68,68,0.08); }
+    .photo-alert { font-size: 11.5px; font-weight: 600; margin-top: 6px; display: none; }
+    .photo-alert.error { color: #ef4444; }
+    .photo-alert.success { color: #16a34a; }
+    .role-badge { font-size: 12px; font-weight: 700; padding: 5px 14px; border-radius: 999px; background: rgba(225,29,72,0.1); color: #e11d48; border: 1px solid rgba(225,29,72,0.2); white-space: nowrap; }
+
+    /* ── Stats row ── */
+    .profile-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 20px; }
+    .profile-stat { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px 20px; }
+    .profile-stat-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 6px; }
+    .profile-stat-val { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
+    .profile-stat-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; }
+
+    /* ── Main grid ── */
+    .profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 18px; }
+    .profile-card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+    .profile-card-header { padding: 16px 22px; border-bottom: 1px solid var(--border); }
+    .profile-card-header h3 { font-size: 14px; font-weight: 700; color: var(--text); margin: 0; }
+    .profile-card-body { padding: 20px 22px; }
+
+    /* ── Fields ── */
+    .profile-field { margin-bottom: 14px; }
+    .profile-field:last-child { margin-bottom: 0; }
+    .profile-field label { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+    .profile-field .value { font-size: 13.5px; font-weight: 600; color: var(--text); background: var(--input-bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 13px; }
+
+    /* ── Password ── */
+    .pw-input-wrap { position: relative; }
+    .pw-input-wrap input { width: 100%; padding: 9px 38px 9px 13px; background: var(--input-bg); border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-size: 13.5px; font-family: 'Inter', sans-serif; color: var(--text); outline: none; transition: border-color 0.2s, box-shadow 0.2s; box-sizing: border-box; }
+    .pw-input-wrap input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .pw-input-wrap input.is-invalid { border-color: #ef4444 !important; }
+    .pw-input-wrap input.is-valid   { border-color: #22c55e !important; }
+    .pw-toggle { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; padding: 3px; }
+    .pw-toggle svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+    .pw-toggle .eye-off { display: none; }
+    .pw-toggle.show-pass .eye-on { display: none; }
+    .pw-toggle.show-pass .eye-off { display: block; }
+    .field-error { font-size: 11px; color: #ef4444; font-weight: 600; margin-top: 3px; display: block; min-height: 14px; }
+    .pw-req { font-size: 10.5px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: rgba(239,68,68,0.1); color: #dc2626; border: 1px solid rgba(239,68,68,0.2); transition: opacity 0.2s, transform 0.2s; }
+    .pw-req.met { opacity: 0; transform: scale(0.7); pointer-events: none; position: absolute; }
+
+    .save-btn { width: 100%; padding: 10px; background: var(--gradient); color: #fff; border: none; border-radius: var(--radius-sm); font-family: 'Inter', sans-serif; font-size: 13.5px; font-weight: 700; cursor: pointer; transition: opacity 0.18s, transform 0.15s; margin-top: 6px; }
+    .save-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .save-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+    .pw-alert { padding: 9px 13px; border-radius: 8px; font-size: 12.5px; font-weight: 600; margin-bottom: 12px; display: none; border: 1px solid; }
+    .pw-alert.error   { background: rgba(239,68,68,0.08); color: #ef4444; border-color: rgba(239,68,68,0.2); }
+    .pw-alert.success { background: rgba(34,197,94,0.08); color: #16a34a; border-color: rgba(34,197,94,0.2); }
+
+    /* ── Permissions ── */
+    .perms-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .perm-item { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--text-muted); }
+    .perm-dot { width: 7px; height: 7px; border-radius: 50%; background: #16a34a; flex-shrink: 0; }
+
+    /* ── Recent activity ── */
+    .activity-list { display: flex; flex-direction: column; gap: 0; }
+    .activity-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0; margin-top: 4px; }
+    .activity-text { flex: 1; color: var(--text); line-height: 1.4; }
+    .activity-time { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+
+    @media (max-width: 700px) {
+        .profile-grid { grid-template-columns: 1fr; }
+        .profile-stats { grid-template-columns: 1fr 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Hero: photo + role + upload ── -->
+<div class="profile-hero">
+    {% if sa.profile_photo %}
+    <img src="{{ url_for('superadmin.superadmin_profile_photo', filename=sa.profile_photo) }}" class="hero-avatar" id="photoPreview">
+    {% else %}
+    <div class="hero-initials" id="photoInitials">{{ sa.firstname[0] }}{{ sa.lastname[0] }}</div>
+    <img src="" class="hero-avatar" id="photoPreview" style="display:none;">
+    {% endif %}
+    <div class="hero-info">
+        <p>Profile photo — JPG, PNG or GIF, max 5MB</p>
+        <div class="hero-btn-row">
+            <input type="file" id="photoInput" accept="image/*" style="display:none;" onchange="handlePhotoSelect(this)">
+            <button class="photo-upload-btn" onclick="document.getElementById('photoInput').click()">Upload Photo</button>
+            <button class="photo-remove-btn" id="removePhotoBtn" onclick="removePhoto()" {% if not sa.profile_photo %}style="display:none;"{% endif %}>Remove</button>
+            <span class="role-badge">Super Admin</span>
+        </div>
+        <span class="photo-alert error" id="photo-error"></span>
+        <span class="photo-alert success" id="photo-success"></span>
+    </div>
+</div>
+
+<!-- ── Stats ── -->
+<div class="profile-stats">
+    <div class="profile-stat">
+        <div class="profile-stat-label">Admins created</div>
+        <div class="profile-stat-val">{{ sa.admins_created }}</div>
+    </div>
+    <div class="profile-stat">
+        <div class="profile-stat-label">Last login</div>
+        <div class="profile-stat-val" style="font-size:16px;">Today</div>
+        <div class="profile-stat-sub">Active session</div>
+    </div>
+</div>
+
+<!-- ── Main grid ── -->
+<div class="profile-grid">
+
+    <!-- Account Info -->
+    <div class="profile-card">
+        <div class="profile-card-header"><h3>Account information</h3></div>
+        <div class="profile-card-body">
+            <div class="profile-field"><label>ID</label><div class="value">{{ sa.user_id }}</div></div>
+            <div class="profile-field"><label>First Name</label><div class="value">{{ sa.firstname }}</div></div>
+            <div class="profile-field"><label>Last Name</label><div class="value">{{ sa.lastname }}</div></div>
+            <div class="profile-field"><label>Email</label><div class="value">{{ sa.email }}</div></div>
+            <div class="profile-field">
+                <label>Role</label>
+                <div class="value" style="display:flex;align-items:center;">
+                    <span class="role-badge">Super Admin</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password -->
+    <div class="profile-card">
+        <div class="profile-card-header"><h3>Change password</h3></div>
+        <div class="profile-card-body">
+            <div class="pw-alert error" id="pw-error"></div>
+            <div class="pw-alert success" id="pw-success"></div>
+            <div class="profile-field">
+                <label>Current Password</label>
+                <div class="pw-input-wrap">
+                    <input type="password" id="cur-pw" placeholder="Enter current password">
+                    <button type="button" class="pw-toggle" onclick="togglePw('cur-pw',this)">
+                        <svg class="eye-on" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="profile-field">
+                <label>New Password</label>
+                <div class="pw-input-wrap">
+                    <input type="password" id="new-pw" placeholder="Enter new password">
+                    <button type="button" class="pw-toggle" onclick="togglePw('new-pw',this)">
+                        <svg class="eye-on" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                </div>
+                <div id="pw-reqs" style="display:none;flex-wrap:wrap;gap:5px;margin-top:7px;">
+                    <span class="pw-req" id="req-len">8+ characters</span>
+                    <span class="pw-req" id="req-upper">Uppercase</span>
+                    <span class="pw-req" id="req-lower">Lowercase</span>
+                    <span class="pw-req" id="req-num">Number</span>
+                    <span class="pw-req" id="req-special">Special character</span>
+                </div>
+                <span class="field-error" id="err-new-pw"></span>
+            </div>
+            <div class="profile-field">
+                <label>Confirm New Password</label>
+                <div class="pw-input-wrap">
+                    <input type="password" id="cfm-pw" placeholder="Repeat new password">
+                    <button type="button" class="pw-toggle" onclick="togglePw('cfm-pw',this)">
+                        <svg class="eye-on" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="eye-off" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                </div>
+                <span class="field-error" id="err-cfm-pw"></span>
+            </div>
+            <button class="save-btn" id="savePwBtn" disabled onclick="savePassword()">Save password</button>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="profile-card">
+        <div class="profile-card-header"><h3>Recent activity</h3></div>
+        <div class="profile-card-body">
+            {% if recent_logs %}
+            <div class="activity-list">
+                {% for log in recent_logs %}
+                <div class="activity-item">
+                    <div class="activity-dot"></div>
+                    <div class="activity-text">
+                        {{ log.action }}{% if log.details %} — <span style="color:var(--text-muted);">{{ log.details[:50] }}{% if log.details|length > 50 %}…{% endif %}</span>{% endif %}
+                    </div>
+                    <div class="activity-time">{{ log.created_at.strftime('%b %d') }}</div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p style="font-size:13px;color:var(--text-muted);">No recent activity.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 2FA -->
+    <div class="profile-card">
+        <div class="profile-card-header" style="display:flex;align-items:center;justify-content:space-between;">
+            <h3>Two-Factor Authentication</h3>
+            <span style="font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:{{ 'rgba(22,163,74,0.12)' if sa.twofa_enabled else 'rgba(100,116,139,0.12)' }};color:{{ '#16a34a' if sa.twofa_enabled else 'var(--text-muted)' }};">{{ 'Enabled' if sa.twofa_enabled else 'Disabled' }}</span>
+        </div>
+        <div class="profile-card-body">
+            <div id="twofa-alert" class="pw-alert" style="display:none;"></div>
+            <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">Add an extra layer of security to your account. When enabled, a 6-digit code will be sent to <strong style="color:var(--text);">{{ sa.email }}</strong> every time you log in.</p>
+            {% if sa.twofa_enabled %}
+            <button class="save-btn" id="twofaBtn" onclick="toggle2FA('disable')" style="background:linear-gradient(135deg,#ef4444,#dc2626);">Disable 2FA</button>
+            {% else %}
+            <button class="save-btn" id="twofaBtn" onclick="toggle2FA('enable')">Enable 2FA</button>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- Permissions (full width) -->
+<div class="profile-card" style="margin-bottom:0;">
+    <div class="profile-card-header"><h3>Permissions</h3></div>
+    <div class="profile-card-body">
+        <div class="perms-grid">
+            <div class="perm-item"><div class="perm-dot"></div>Create admin accounts</div>
+            <div class="perm-item"><div class="perm-dot"></div>Edit admin accounts</div>
+            <div class="perm-item"><div class="perm-dot"></div>Delete admin accounts</div>
+            <div class="perm-item"><div class="perm-dot"></div>View admin activity logs</div>
+            <div class="perm-item"><div class="perm-dot"></div>Manage system access</div>
+            <div class="perm-item"><div class="perm-dot"></div>Full system oversight</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function togglePw(id, btn) {
+        const inp = document.getElementById(id);
+        if (inp.type === 'password') { inp.type = 'text'; btn.classList.add('show-pass'); }
+        else { inp.type = 'password'; btn.classList.remove('show-pass'); }
+    }
+
+    function updatePwReqs(pw) {
+        const c = document.getElementById('pw-reqs');
+        c.style.display = pw ? 'flex' : 'none';
+        const t = (id, met) => document.getElementById(id).classList.toggle('met', met);
+        t('req-len', pw.length >= 8); t('req-upper', /[A-Z]/.test(pw));
+        t('req-lower', /[a-z]/.test(pw)); t('req-num', /[0-9]/.test(pw));
+        t('req-special', /[^A-Za-z0-9]/.test(pw));
+    }
+
+    const PW_RE = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/;
+
+    function setErr(id, msg) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = msg;
+        const inp = document.getElementById(id.replace('err-', ''));
+        if (inp) { inp.classList.toggle('is-invalid', !!msg); inp.classList.toggle('is-valid', !msg && inp.value !== ''); }
+    }
+
+    function validateNewPw() {
+        const val = document.getElementById('new-pw').value;
+        if (!val) { setErr('err-new-pw', 'New password is required.'); return false; }
+        if (!PW_RE.test(val)) { setErr('err-new-pw', ''); return false; }
+        setErr('err-new-pw', ''); return true;
+    }
+    function validateConfirm() {
+        const pw = document.getElementById('new-pw').value;
+        const val = document.getElementById('cfm-pw').value;
+        if (!val) { setErr('err-cfm-pw', 'Please confirm your password.'); return false; }
+        if (pw !== val) { setErr('err-cfm-pw', 'Passwords do not match.'); return false; }
+        setErr('err-cfm-pw', ''); return true;
+    }
+    function updateSaveBtn() {
+        const cur = document.getElementById('cur-pw').value;
+        const ok = cur && document.getElementById('new-pw').classList.contains('is-valid') && document.getElementById('cfm-pw').classList.contains('is-valid');
+        document.getElementById('savePwBtn').disabled = !ok;
+    }
+
+    document.getElementById('cur-pw').addEventListener('input', updateSaveBtn);
+    document.getElementById('new-pw').addEventListener('input', function() {
+        updatePwReqs(this.value); validateNewPw();
+        if (document.getElementById('cfm-pw').value) validateConfirm();
+        updateSaveBtn();
+    });
+    document.getElementById('cfm-pw').addEventListener('input', () => { validateConfirm(); updateSaveBtn(); });
+
+    async function savePassword() {
+        if (!validateNewPw() || !validateConfirm()) return;
+        const btn = document.getElementById('savePwBtn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        const errEl = document.getElementById('pw-error');
+        const sucEl = document.getElementById('pw-success');
+        errEl.style.display = 'none'; sucEl.style.display = 'none';
+
+        const res = await fetch('{{ url_for("superadmin.profile") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                current_password: document.getElementById('cur-pw').value,
+                new_password:     document.getElementById('new-pw').value,
+                confirm_password: document.getElementById('cfm-pw').value
+            })
+        });
+        const json = await res.json();
+        btn.disabled = false; btn.textContent = 'Save password';
+
+        if (json.success) {
+            sucEl.textContent = 'Password updated successfully.';
+            sucEl.className = 'pw-alert success'; sucEl.style.display = 'block';
+            ['cur-pw','new-pw','cfm-pw'].forEach(id => {
+                document.getElementById(id).value = '';
+                document.getElementById(id).classList.remove('is-valid','is-invalid');
+            });
+            updatePwReqs(''); btn.disabled = true;
+        } else {
+            errEl.textContent = json.error;
+            errEl.className = 'pw-alert error'; errEl.style.display = 'block';
+        }
+    }
+
+    async function toggle2FA(action) {
+        const btn = document.getElementById('twofaBtn');
+        btn.disabled = true;
+        const alertEl = document.getElementById('twofa-alert');
+        alertEl.style.display = 'none';
+        const res = await fetch(`/superadmin/toggle-superadmin-2fa/${action}`, { method: 'POST' });
+        const json = await res.json();
+        btn.disabled = false;
+        if (json.success) { location.reload(); }
+        else { alertEl.textContent = json.error; alertEl.className = 'pw-alert error'; alertEl.style.display = 'block'; }
+    }
+
+    async function handlePhotoSelect(input) {
+        const file = input.files[0];
+        if (!file) return;
+        const errEl = document.getElementById('photo-error');
+        const sucEl = document.getElementById('photo-success');
+        errEl.style.display = 'none'; sucEl.style.display = 'none';
+        if (file.size > 5 * 1024 * 1024) { errEl.textContent = 'File must be under 5MB.'; errEl.style.display = 'block'; return; }
+        const formData = new FormData();
+        formData.append('photo', file);
+        const res = await fetch('{{ url_for("superadmin.upload_superadmin_photo") }}', { method: 'POST', body: formData });
+        const json = await res.json();
+        if (json.success) {
+            const url = `/superadmin/superadmin-profile-photo/${json.filename}`;
+            const preview = document.getElementById('photoPreview');
+            const initials = document.getElementById('photoInitials');
+            preview.src = url; preview.style.display = 'block';
+            if (initials) initials.style.display = 'none';
+            document.getElementById('removePhotoBtn').style.display = 'inline-flex';
+            sucEl.textContent = 'Photo updated.'; sucEl.style.display = 'block';
+        } else { errEl.textContent = json.error; errEl.style.display = 'block'; }
+        input.value = '';
+    }
+
+    async function removePhoto() {
+        const res = await fetch('{{ url_for("superadmin.delete_superadmin_photo") }}', { method: 'POST' });
+        const json = await res.json();
+        if (json.success) { location.reload(); }
+    }
+</script>
+{% endblock %}

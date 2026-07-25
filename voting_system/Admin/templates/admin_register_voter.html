@@ -1,0 +1,843 @@
+{% extends 'base.html' %}
+{% block title %}Register Voter{% endblock %}
+{% block page_title %}Register Voter{% endblock %}
+
+{% block head %}
+<style>
+    /* ── Fixed full-height layout ── */
+    .content {
+        height: calc(100vh - 64px);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        padding: 20px 28px !important;
+        box-sizing: border-box;
+        gap: 0;
+    }
+    .page-header { margin-bottom: 16px; flex-shrink: 0; }
+
+    .register-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        flex: 1;
+        min-height: 0;
+        align-items: start;
+    }
+
+    /* ── Shared card base ── */
+    .form-card, .info-panel {
+        background: var(--card);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    /* ── Form card ── */
+    .form-card-header {
+        background: var(--gradient);
+        padding: 22px 28px;
+        color: white;
+        flex-shrink: 0;
+    }
+    .form-card-header h3 {
+        font-size: 16px;
+        font-weight: 800;
+        margin-bottom: 3px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .form-card-header p {
+        font-size: 12.5px;
+        opacity: 0.82;
+        line-height: 1.5;
+    }
+    .form-card-body {
+        padding: 24px 28px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        gap: 0;
+    }
+    .form-alerts { flex-shrink: 0; }
+    .form-fields {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+
+    /* ── Input fields ── */
+    .input-field {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .input-field label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+    .input-wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+    .field-icon {
+        position: absolute;
+        left: 13px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 17px;
+        height: 17px;
+        color: var(--accent);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+    }
+    .field-icon svg {
+        width: 17px;
+        height: 17px;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    .input-field input {
+        width: 100%;
+        padding: 11px 14px 11px 42px;
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius-sm);
+        font-size: 13.5px;
+        font-family: 'Inter', sans-serif;
+        color: var(--text);
+        background: var(--input-bg);
+        transition: border-color 0.2s, box-shadow 0.2s;
+        outline: none;
+        box-sizing: border-box;
+    }
+    .input-field input::placeholder { color: var(--text-muted); opacity: 0.7; }
+    .input-field input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
+        background: var(--input-bg-focus);
+    }
+    .input-field input.is-invalid { border-color: #ef4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,0.08) !important; }
+    .input-field input.is-valid   { border-color: var(--border) !important; box-shadow: none !important; }
+
+    .name-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+    }
+    .field-error {
+        font-size: 10.5px;
+        color: #dc2626;
+        font-weight: 600;
+        min-height: 14px;
+        display: block;
+    }
+    .form-alert {
+        border-radius: var(--radius-sm);
+        font-size: 12.5px;
+        font-weight: 600;
+        padding: 9px 13px;
+        margin-bottom: 10px;
+        display: none;
+    }
+    .form-alert.error   { background: rgba(220,38,38,0.1);  color: #fca5a5; border-left: 4px solid #e11d48; }
+    .form-alert.success { background: rgba(22,163,74,0.1);  color: #86efac; border-left: 4px solid #16a34a; }
+
+    .submit-btn {
+        width: 100%;
+        padding: 13px;
+        background: var(--gradient);
+        border: none;
+        border-radius: var(--radius-sm);
+        color: white;
+        font-size: 13.5px;
+        font-weight: 700;
+        font-family: 'Inter', sans-serif;
+        cursor: pointer;
+        transition: opacity 0.15s, transform 0.15s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        flex-shrink: 0;
+    }
+    .submit-btn:hover   { opacity: 0.9; transform: translateY(-1px); }
+    .submit-btn:active  { transform: translateY(0); }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Info panel ── */
+    .info-panel {
+        padding: 0;
+        overflow: hidden;
+    }
+    .info-panel-header {
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .info-panel-header h4 {
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--text);
+        margin: 0;
+    }
+    .info-panel-header svg { color: var(--accent); flex-shrink: 0; }
+    .info-steps {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 8px 0;
+        min-height: 0;
+    }
+    .info-step {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        padding: 14px 24px;
+        flex: 1;
+        border-bottom: 1px solid var(--border);
+        min-height: 0;
+    }
+    .info-step:last-child { border-bottom: none; }
+    .step-num {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--accent-dim);
+        color: var(--accent);
+        font-size: 12px;
+        font-weight: 800;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        margin-top: 1px;
+    }
+    .step-text strong {
+        display: block;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        margin-bottom: 3px;
+    }
+    .step-text span {
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.55;
+    }
+    .info-note {
+        padding: 14px 24px;
+        border-top: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text-muted);
+        font-size: 12px;
+        line-height: 1.6;
+        flex-shrink: 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .info-note svg { flex-shrink: 0; margin-top: 1px; color: var(--accent); }
+    .info-note strong { color: var(--text); font-weight: 700; }
+
+    /* ── Responsive ── */
+    @media (max-width: 1024px) {
+        .content { height: auto; overflow: auto; }
+        .register-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+        .name-row { grid-template-columns: 1fr; }
+        .form-card-body { padding: 18px; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="page-header">
+        <div class="page-header-left">
+            <h2>Register Voter</h2>
+            <p>Create voter accounts and manage pending activations</p>
+        </div>
+        <button class="btn-primary" onclick="openImportVoterModal()" style="background:var(--gradient);">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import via Excel
+        </button>
+    </div>
+    <div class="register-grid">
+        <div class="form-card">
+            <div class="form-card-header">
+                <h3>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    Register New Voter
+                </h3>
+                <p>Fill in the details below to create a voter account.</p>
+            </div>
+            <div class="form-card-body">
+                <div class="form-alerts">
+                    <div class="form-alert error" id="reg-alert"></div>
+                    <div class="form-alert success" id="reg-success"></div>
+                </div>
+                <form id="registerVoterForm" style="display:flex;flex-direction:column;gap:0;">
+                    <div class="form-fields">
+                        <div class="input-field">
+                            <label>Student ID <span style="color:#ef4444;">*</span></label>
+                            <div class="input-wrap">
+                                <span class="field-icon">
+                                    <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+                                </span>
+                                <input type="text" name="user_id" id="f-user_id" placeholder="e.g. 261-0000" required>
+                            </div>
+                            <span class="field-error" id="err-user_id"></span>
+                        </div>
+                        <div class="name-row">
+                            <div class="input-field">
+                                <label>First Name <span style="color:#ef4444;">*</span></label>
+                                <div class="input-wrap">
+                                    <span class="field-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    </span>
+                                    <input type="text" name="firstname" id="f-firstname" placeholder="First name" required>
+                                </div>
+                                <span class="field-error" id="err-firstname"></span>
+                            </div>
+                            <div class="input-field">
+                                <label>Last Name <span style="color:#ef4444;">*</span></label>
+                                <div class="input-wrap">
+                                    <span class="field-icon">
+                                        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                    </span>
+                                    <input type="text" name="lastname" id="f-lastname" placeholder="Last name" required>
+                                </div>
+                                <span class="field-error" id="err-lastname"></span>
+                            </div>
+                        </div>
+                        <div class="input-field">
+                            <label>Email Address <span style="color:#ef4444;">*</span></label>
+                            <div class="input-wrap">
+                                <span class="field-icon">
+                                    <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                                </span>
+                                <input type="text" name="email" id="f-email" placeholder="student@school.edu" required>
+                            </div>
+                            <span class="field-error" id="err-email"></span>
+                        </div>
+                    </div>
+                    <button type="submit" class="submit-btn" id="regSubmitBtn">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Create Account & Send Activation
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div class="info-panel-header">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <h4>How it works</h4>
+            </div>
+            <div class="info-steps">
+                <div class="info-step">
+                    <div class="step-num">1</div>
+                    <div class="step-text">
+                        <strong>Fill in voter details</strong>
+                        <span>Enter the student's ID, full name, and school email address.</span>
+                    </div>
+                </div>
+                <div class="info-step">
+                    <div class="step-num">2</div>
+                    <div class="step-text">
+                        <strong>Account is created</strong>
+                        <span>The system creates an inactive account and generates a 6-digit activation code.</span>
+                    </div>
+                </div>
+                <div class="info-step">
+                    <div class="step-num">3</div>
+                    <div class="step-text">
+                        <strong>Email is sent automatically</strong>
+                        <span>The activation code is emailed to the student's registered address.</span>
+                    </div>
+                </div>
+                <div class="info-step">
+                    <div class="step-num">4</div>
+                    <div class="step-text">
+                        <strong>Student activates account</strong>
+                        <span>The student clicks <strong>Activate Account</strong> on the login page, verifies their Student ID and code, then sets a new password.</span>
+                    </div>
+                </div>
+            </div>
+            <div class="info-note">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span>If the student didn't receive the email, use <strong>Change Email</strong> to fix a wrong email address.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-card" style="display:none;">
+        <div class="table-card-header">
+            <div>
+                <h3>Unactivated Accounts</h3>
+                <p>Voters who have not yet activated their account</p>
+            </div>
+            {% if inactive_voters %}
+            <span class="count-badge">{{ inactive_voters|length }} pending</span>
+            {% endif %}
+        </div>
+        {% if inactive_voters %}
+        <div class="table-wrap" style="border:none;border-radius:0;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Voter</th>
+                        <th>Student ID</th>
+                        <th>Email</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for voter in inactive_voters %}
+                    <tr id="row-{{ voter.id }}">
+                        <td>
+                            <div class="voter-info">
+                                <div class="voter-avatar">{{ voter.firstname[0].upper() }}{{ voter.lastname[0].upper() }}</div>
+                                <div>
+                                    <strong>{{ voter.firstname }} {{ voter.lastname }}</strong>
+                                    <span>Pending activation</span>
+                                </div>
+                            </div>
+                        </td>
+                        <td><span class="id-code">{{ voter.user_id }}</span></td>
+                        <td id="email-{{ voter.id }}" style="color:var(--text-muted);font-size:13px;">{{ voter.email }}</td>
+                        <td>
+                            <button class="btn-edit" onclick="resendCode({{ voter.id }}, this)">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> Resend Code
+                            </button>
+                            <button class="btn-view" onclick="openChangeEmailModal({{ voter.id }}, '{{ voter.email }}')" id="change-email-btn-{{ voter.id }}">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Change Email
+                            </button>
+                            <button class="btn-delete" onclick="openVoterDeleteModal({{ voter.id }}, '{{ voter.firstname }} {{ voter.lastname }}')">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="padding:40px 28px;text-align:center;">
+            <div style="margin-bottom:14px;">
+                <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);opacity:0.7;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <p style="font-weight:600;color:var(--text);margin-bottom:4px;">All accounts are activated</p>
+            <p style="font-size:13px;color:var(--text-muted);">No pending activations at the moment.</p>
+        </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block modals %}
+    <!-- IMPORT VOTER MODAL -->
+    <div class="modal-overlay" id="importVoterModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Import Voters via Excel</h3><p>Bulk register voters from a .xlsx file.</p></div>
+                <button class="modal-close" onclick="closeImportVoterModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="import-voter-alert" class="modal-alert" style="display:none;"></div>
+            <form id="importVoterForm" enctype="multipart/form-data">
+                <div style="margin:0 28px 16px;padding:12px 16px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:8px;font-size:13px;color:#1e40af;line-height:1.7;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> <strong>Instructions:</strong><br>
+                    • Only <strong>.xlsx</strong> files are accepted (max 30 rows)<br>
+                    • Required columns: <strong>student_id</strong>, <strong>firstname</strong>, <strong>lastname</strong>, <strong>email</strong><br>
+                    • Duplicate student IDs or emails will be skipped automatically<br>
+                    • An activation email will be sent to each successfully registered voter<br>
+                    • <a href="/admin/download-voter-template" style="color:#2563eb;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Template</a>
+                </div>
+                <div class="form-group">
+                    <label>Excel File <span class="label-required">*</span></label>
+                    <input type="file" name="file" id="import-voter-file" accept=".xlsx" required>
+                    <span class="cand-field-error" id="err-import-voter-file"></span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeImportVoterModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</button>
+                    <button type="submit" class="btn-primary" id="importVoterSubmitBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DELETE VOTER MODAL -->
+    <div class="modal-overlay" id="voterDeleteModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Delete Account</h3><p>This action cannot be undone.</p></div>
+                <button class="modal-close" onclick="closeVoterDeleteModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div style="padding: 20px 28px 28px;">
+                <div class="alert-error" style="margin-bottom:20px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    You are about to permanently delete the account of <strong id="voter-delete-name"></strong>. The student will need to be re-registered if needed.
+                </div>
+                <div class="modal-actions" style="border-top:none; margin-top:0; padding-top:0;">
+                    <button class="btn-secondary" onclick="closeVoterDeleteModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</button>
+                    <button class="btn-delete" id="voter-delete-confirm-btn" onclick="executeVoterDelete()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg> Delete Account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="changeEmailModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Change Email</h3><p>Update the voter's email and resend the activation code.</p></div>
+                <button class="modal-close" onclick="closeChangeEmailModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="email-modal-alert" class="modal-alert" style="display:none;"></div>
+            <form id="changeEmailForm">
+                <input type="hidden" id="ce-user-id">
+                <input type="hidden" id="ce-current-email">
+                <div class="form-group">
+                    <label>New Email Address <span class="label-required">*</span></label>
+                    <input type="text" id="ce-email" name="email" required placeholder="Enter new email address" autocomplete="off">
+                    <span id="ce-email-error" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeChangeEmailModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</button>
+                    <button type="submit" class="btn-primary" id="ceSubmitBtn" disabled><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> Save & Resend</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const RULES = {
+        user_id:   { regex: /^\d{3}-\d{4}$/, min: 0, max: 0,
+                     msg: 'Format must be XXX-XXXX (e.g. 261-0000).' },
+        firstname: { regex: /^[A-Za-z\s'\-]{3,30}$/, min: 3, max: 30,
+                     msg: 'First name: 3–30 characters, letters only (hyphens/apostrophes allowed).' },
+        lastname:  { regex: /^[A-Za-z\s'\-]{3,30}$/, min: 3, max: 30,
+                     msg: 'Last name: 3–30 characters, letters only (spaces/hyphens/apostrophes allowed).' },
+        email:     { regex: /^(?!.*\.\.)(?!.*\.$)[^\W][a-zA-Z0-9._%+\-]{0,63}@[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,}$/, min: 0, max: 0,
+                     msg: 'Enter a valid email address (e.g. student@school.edu).' }
+    };
+
+    function collapseSpaces(val) { return val.replace(/\s+/g, ' ').trim(); }
+
+    function titleCase(val) {
+        return val.replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function normalizeField(id) {
+        const el = document.getElementById('f-' + id);
+        let val = el.value;
+        if (id === 'email') {
+            el.value = val.trim().toLowerCase();
+        } else {
+            val = collapseSpaces(val);
+            el.value = titleCase(val);
+        }
+    }
+
+    function validateField(id) {
+        normalizeField(id);
+        const el  = document.getElementById('f-' + id);
+        const err = document.getElementById('err-' + id);
+        const val = el.value.trim();
+
+        if (!val) {
+            setInvalid(el, err, 'This field is required.');
+            return false;
+        }
+        const rule = RULES[id];
+        if (!rule.regex.test(val)) {
+            setInvalid(el, err, rule.msg);
+            return false;
+        }
+        setValid(el, err);
+        return true;
+    }
+
+    // Live validation while typing — no normalization so spaces aren't stripped mid-input
+    function validateFieldLive(id) {
+        const el  = document.getElementById('f-' + id);
+        const err = document.getElementById('err-' + id);
+        const val = el.value.trim();
+        if (!val) { setInvalid(el, err, 'This field is required.'); return false; }
+        if (!RULES[id].regex.test(val)) { setInvalid(el, err, RULES[id].msg); return false; }
+        setValid(el, err);
+        return true;
+    }
+
+    function setInvalid(el, err, msg) {
+        el.classList.add('is-invalid'); el.classList.remove('is-valid');
+        err.textContent = msg;
+    }
+    function setValid(el, err) {
+        el.classList.remove('is-invalid'); el.classList.add('is-valid');
+        err.textContent = '';
+    }
+
+    function allValid() {
+        return ['user_id','firstname','lastname','email'].every(id => {
+            const el = document.getElementById('f-' + id);
+            return el.classList.contains('is-valid');
+        });
+    }
+
+    function updateSubmitBtn() {
+        document.getElementById('regSubmitBtn').disabled = !allValid();
+    }
+
+    ['user_id','firstname','lastname','email'].forEach(id => {
+        const el = document.getElementById('f-' + id);
+        if (!el) return;
+        el.addEventListener('input', () => { validateFieldLive(id); updateSubmitBtn(); });
+        el.addEventListener('blur',  () => { validateField(id);     updateSubmitBtn(); });
+    });
+
+    const regSubmitBtn = document.getElementById('regSubmitBtn');
+    if (regSubmitBtn) {
+        regSubmitBtn.disabled = true;
+    }
+
+    document.getElementById('registerVoterForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!['user_id','firstname','lastname','email'].every(id => validateField(id))) return;
+        const btn = document.getElementById('regSubmitBtn');
+        btn.disabled = true; btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;animation:spin 1s linear infinite;"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Registering...';
+        const alertEl   = document.getElementById('reg-alert');
+        const successEl = document.getElementById('reg-success');
+        alertEl.style.display = 'none'; successEl.style.display = 'none';
+
+        const formData = new FormData(this);
+        // Send normalized values
+        formData.set('user_id',   document.getElementById('f-user_id').value.trim());
+        formData.set('firstname', document.getElementById('f-firstname').value.trim());
+        formData.set('lastname',  document.getElementById('f-lastname').value.trim());
+        formData.set('email',     document.getElementById('f-email').value.trim().toLowerCase());
+
+        let json = null;
+        try {
+            const res  = await fetch('{{ url_for("admin.register_voter") }}', { method: 'POST', body: formData });
+            const text = await res.text();
+            if (!res.ok) {
+                throw new Error(text || res.statusText || 'Failed to create account. Please try again.');
+            }
+            const contentType = res.headers.get('content-type') || '';
+            if (!contentType.includes('application/json')) {
+                throw new Error('Invalid server response. Please refresh and try again.');
+            }
+            json = JSON.parse(text);
+        } catch (error) {
+            alertEl.textContent = error.message || 'Failed to create account. Please try again.';
+            alertEl.style.display = 'block';
+            return;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><polyline points="20 6 9 17 4 12"/></svg> Create Account & Send Activation';
+        }
+        if (json.success) {
+            successEl.textContent = 'Voter registered successfully. Activation email sent.';
+            successEl.style.display = 'block';
+            this.reset();
+            ['user_id','firstname','lastname','email'].forEach(id => {
+                const el = document.getElementById('f-' + id);
+                el.classList.remove('is-valid','is-invalid');
+                document.getElementById('err-' + id).textContent = '';
+            });
+            setTimeout(() => location.reload(), 1800);
+        } else {
+            // Highlight duplicate field if detectable
+            const msg = json.error || '';
+            if (msg.toLowerCase().includes('user id') || msg.toLowerCase().includes('student id')) {
+                setInvalid(document.getElementById('f-user_id'), document.getElementById('err-user_id'), 'This Student ID is already registered.');
+            } else if (msg.toLowerCase().includes('email')) {
+                setInvalid(document.getElementById('f-email'), document.getElementById('err-email'), 'This email is already registered.');
+            }
+            alertEl.textContent = msg;
+            alertEl.style.display = 'block';
+        }
+    });
+
+    async function resendCode(userId, btn) {
+        btn.disabled = true; btn.textContent = 'Sending...';
+        const res = await fetch(`/admin/resend-activation/${userId}`, { method: 'POST' });
+        const json = await res.json();
+        if (json.success) { btn.textContent = 'Sent!'; btn.style.background = '#1a5276'; btn.style.color = 'white'; }
+        else { alert('Failed: ' + json.error); btn.disabled = false; btn.textContent = 'Resend Code'; }
+    }
+
+    const CE_EMAIL_REGEX = /^(?!.*\.\.)(?!.*\.$)[^\W][a-zA-Z0-9._%+\-]{0,63}@[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,}$/;
+
+    function validateCeEmail() {
+        const el          = document.getElementById('ce-email');
+        const err         = document.getElementById('ce-email-error');
+        const btn         = document.getElementById('ceSubmitBtn');
+        const currentEmail = document.getElementById('ce-current-email').value.trim().toLowerCase();
+        const val         = el.value.trim().toLowerCase();
+        el.value          = val;
+
+        const setErr = (msg) => {
+            err.textContent = msg;
+            el.style.borderColor = msg ? '#ef4444' : '#16a34a';
+            btn.disabled = !!msg || !val;
+        };
+
+        if (!val)                          { setErr('Email is required.'); return false; }
+        if (!CE_EMAIL_REGEX.test(val))     { setErr('Enter a valid email address.'); return false; }
+        if (val === currentEmail)          { setErr('This is already the current email address.'); return false; }
+        setErr('');
+        return true;
+    }
+
+    document.getElementById('ce-email').addEventListener('input', validateCeEmail);
+    document.getElementById('ce-email').addEventListener('blur',  validateCeEmail);
+
+    function openChangeEmailModal(userId, currentEmail) {
+        document.getElementById('ce-user-id').value      = userId;
+        document.getElementById('ce-current-email').value = currentEmail.trim().toLowerCase();
+        document.getElementById('ce-email').value        = '';
+        document.getElementById('ce-email').style.borderColor = '';
+        document.getElementById('ce-email-error').textContent = '';
+        document.getElementById('ceSubmitBtn').disabled  = true;
+        document.getElementById('email-modal-alert').style.display = 'none';
+        const m = document.getElementById('changeEmailModal');
+        m.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeChangeEmailModal() {
+        const m = document.getElementById('changeEmailModal');
+        m.style.display='none';
+        document.body.style.overflow = '';
+        document.getElementById('ce-email').value = '';
+        document.getElementById('ce-email').style.borderColor = '';
+        document.getElementById('ce-email-error').textContent = '';
+        document.getElementById('ce-current-email').value = '';
+        document.getElementById('ceSubmitBtn').disabled = true;
+        document.getElementById('email-modal-alert').style.display = 'none';
+    }
+    function closeChangeEmailModalOutside(e) { if (e.target.id==='changeEmailModal') closeChangeEmailModal(); }
+
+    let pendingVoterDeleteId = null;
+    function openVoterDeleteModal(userId, name) {
+        pendingVoterDeleteId = userId;
+        document.getElementById('voter-delete-name').textContent = name;
+        const m=document.getElementById('voterDeleteModal'); m.style.display='flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeVoterDeleteModal() {
+        const m=document.getElementById('voterDeleteModal'); m.style.display='none';
+        document.body.style.overflow = '';
+        pendingVoterDeleteId = null;
+    }
+    function closeVoterDeleteModalOutside(e) { if (e.target.id==='voterDeleteModal') closeVoterDeleteModal(); }
+
+    async function executeVoterDelete() {
+        const btn = document.getElementById('voter-delete-confirm-btn');
+        btn.disabled = true; btn.textContent = 'Deleting...';
+        const res = await fetch(`/admin/delete-voter/${pendingVoterDeleteId}`);
+        const json = await res.json();
+        closeVoterDeleteModal();
+        btn.disabled = false; btn.textContent = 'Delete Account';
+        if (json.success) document.getElementById('row-' + pendingVoterDeleteId)?.remove();
+        else alert('Error: ' + json.error);
+    }
+
+    function openImportVoterModal() { document.getElementById('importVoterModal').style.display='flex'; document.body.style.overflow='hidden'; }
+    function closeImportVoterModal() {
+        document.getElementById('importVoterModal').style.display='none';
+        document.body.style.overflow='';
+        document.getElementById('importVoterForm').reset();
+        document.getElementById('import-voter-alert').style.display='none';
+        document.getElementById('err-import-voter-file').textContent='';
+    }
+
+    document.getElementById('importVoterForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn  = document.getElementById('importVoterSubmitBtn');
+        const file = document.getElementById('import-voter-file').files[0];
+        const errEl = document.getElementById('err-import-voter-file');
+
+        if (!file) { errEl.textContent = 'Please select a file.'; return; }
+        if (!file.name.endsWith('.xlsx')) { errEl.textContent = 'Only .xlsx files are accepted.'; return; }
+        errEl.textContent = '';
+
+        btn.disabled = true; btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;animation:spin 1s linear infinite;"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Importing...';
+        const formData = new FormData(this);
+        let json = null;
+        try {
+            const res = await fetch('{{ url_for("admin.import_voters") }}', { method: 'POST', body: formData });
+            json = await res.json();
+        } catch (err) {
+            const a = document.getElementById('import-voter-alert');
+            a.textContent = 'Failed to import. Please try again.';
+            a.className = 'modal-alert modal-alert-error';
+            a.style.display = 'block';
+            btn.disabled = false; 
+            btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import';
+            return;
+        }
+        btn.disabled = false; 
+        btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import';
+        const a = document.getElementById('import-voter-alert');
+        if (json.success) {
+            a.textContent = json.message;
+            a.className = 'modal-alert modal-alert-success';
+            a.style.display = 'block';
+            setTimeout(() => location.reload(), 2000);
+        } else {
+            a.textContent = json.error;
+            a.className = 'modal-alert modal-alert-error';
+            a.style.display = 'block';
+        }
+    });
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeChangeEmailModal(); closeVoterDeleteModal(); closeImportVoterModal(); } });
+
+    document.getElementById('changeEmailForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!validateCeEmail()) return;
+        const btn    = document.getElementById('ceSubmitBtn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        const userId = document.getElementById('ce-user-id').value;
+        const email  = document.getElementById('ce-email').value.trim().toLowerCase();
+        const res    = await fetch(`/admin/change-email/${userId}`, { method: 'POST', body: new URLSearchParams({ email }) });
+        const json   = await res.json();
+        if (json.success) {
+            closeChangeEmailModal();
+            // Update the displayed email in the table
+            document.getElementById('email-' + userId).textContent = email;
+            // Update the button's onclick attribute with the new email
+            const btn = document.getElementById('change-email-btn-' + userId);
+            if (btn) {
+                btn.setAttribute('onclick', `openChangeEmailModal(${userId}, '${email}')`);
+            }
+        } else {
+            const a = document.getElementById('email-modal-alert');
+            a.textContent = json.error;
+            a.style.display = 'block';
+            if (json.error.toLowerCase().includes('email')) {
+                document.getElementById('ce-email').style.borderColor = '#ef4444';
+                document.getElementById('ce-email-error').textContent = 'This email is already in use by another account.';
+            }
+        }
+        btn.disabled = false; btn.textContent = 'Save & Resend';
+    });
+</script>
+{% endblock %}

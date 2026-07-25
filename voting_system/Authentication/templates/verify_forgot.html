@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Votely — Verify OTP</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>if (localStorage.getItem('theme') !== 'dark') { document.documentElement.classList.add('light'); }</script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+    --accent: #6366f1;
+    --accent-light: #818cf8;
+    --accent-dim: rgba(99,102,241,0.12);
+    --accent-glow: rgba(99,102,241,0.3);
+    --gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    --dark: #0d1117;
+    --dark2: #161b27;
+    --dark3: #1e2535;
+    --border: rgba(255,255,255,0.08);
+    --text: #f1f5f9;
+    --muted: rgba(255,255,255,0.45);
+}
+html.light {
+    --dark: #f0f2f5;
+    --dark2: #ffffff;
+    --dark3: #f8fafc;
+    --dark-input: #ffffff;
+    --border: rgba(0,0,0,0.10);
+    --text: #0f172a;
+    --muted: rgba(15,23,42,0.5);
+}
+.login-theme-toggle {
+    position: fixed; top: 16px; right: 16px; z-index: 100;
+    width: 38px; height: 38px; border-radius: 50%;
+    border: 1.5px solid var(--border); background: var(--dark2);
+    color: var(--text); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+}
+.login-theme-toggle:hover { transform: scale(1.1); border-color: var(--accent); }
+.login-theme-toggle svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.login-theme-toggle .icon-sun { display: none; }
+.login-theme-toggle .icon-moon { display: block; }
+html.light .login-theme-toggle .icon-sun { display: block; }
+html.light .login-theme-toggle .icon-moon { display: none; }
+html.light .btn-ghost { color: rgba(15,23,42,0.6); border-color: rgba(0,0,0,0.15); }
+html.light .btn-ghost:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+html.light .pin-input { background: var(--dark-input); border-color: rgba(0,0,0,0.12); }
+html.light .pin-input:focus { background: var(--dark-input); border-color: var(--accent); }
+
+body {
+    font-family: 'Inter', sans-serif;
+    height: 100vh;
+    background: var(--dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Background blobs */
+.bg-blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+}
+.bg-blob-1 { width: 500px; height: 500px; background: rgba(99,102,241,0.15); top: -150px; left: -100px; }
+.bg-blob-2 { width: 400px; height: 400px; background: rgba(139,92,246,0.12); bottom: -100px; right: -80px; }
+.bg-blob-3 { width: 300px; height: 300px; background: rgba(99,102,241,0.08); top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+/* Card */
+.login-card {
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+    max-width: 810px;
+    max-height: calc(100vh - 40px);
+    border-radius: 22px;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px var(--border), 0 40px 100px rgba(0,0,0,0.5);
+    animation: cardIn 0.6s cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(28px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Left panel */
+.left-panel {
+    background: var(--gradient);
+    padding: 44px 42px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+}
+.left-panel::before {
+    content: '';
+    position: absolute;
+    width: 350px; height: 350px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.12);
+    top: -100px; right: -80px;
+}
+.left-panel::after {
+    content: '';
+    position: absolute;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.08);
+    bottom: -60px; left: 40px;
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand-logo {
+    width: 50px; height: 50px;
+    border-radius: 13px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.2);
+    flex-shrink: 0;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+}
+.brand-logo img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: -webkit-optimize-contrast; image-rendering: crisp-edges; filter: contrast(1.05) brightness(1.02); }
+.brand-name { font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -0.3px; }
+.brand-sub { font-size: 10px; color: rgba(255,255,255,0.65); font-weight: 500; margin-top: 1px; }
+
+.left-content { position: relative; z-index: 1; }
+.left-content h2 { font-size: 1.75rem; font-weight: 800; color: #fff; line-height: 1.2; letter-spacing: -0.5px; margin-bottom: 12px; }
+.left-content p { font-size: 12px; color: rgba(255,255,255,0.65); line-height: 1.65; max-width: 260px; }
+
+.pillars { display: flex; flex-wrap: wrap; gap: 8px; position: relative; z-index: 1; }
+.pillar {
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #fff;
+    border-radius: 100px;
+    padding: 5px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    backdrop-filter: blur(4px);
+}
+
+/* Right panel */
+.right-panel {
+    background: var(--dark2);
+    padding: 44px 42px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    overflow-y: auto;
+}
+.right-panel h3 { font-size: 20px; font-weight: 800; color: var(--text); letter-spacing: -0.4px; margin-bottom: 5px; }
+.right-panel .subtitle { font-size: 12px; color: var(--muted); margin-bottom: 22px; line-height: 1.6; }
+
+/* Alert */
+.alert { padding: 10px 13px; border-radius: 9px; font-size: 12px; font-weight: 600; margin-bottom: 16px; border: 1px solid; }
+.alert-error   { background: rgba(239,68,68,0.1);  color: #fca5a5; border-color: rgba(239,68,68,0.25); }
+.alert-success { background: rgba(34,197,94,0.1);  color: #86efac; border-color: rgba(34,197,94,0.25); }
+.alert-hidden  { display: none; }
+
+/* Expiry bar */
+.expiry-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    padding: 9px 13px;
+    background: var(--dark3);
+    border-radius: 9px;
+    border: 1.5px solid var(--border);
+}
+.expiry-row span:first-child { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+#expiry-countdown { font-size: 13px; font-weight: 800; color: var(--accent-light); }
+
+/* PIN label */
+.pin-label {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+    text-align: center;
+}
+
+/* PIN row */
+.pin-row { display: flex; gap: 12px; justify-content: center; margin-bottom: 22px; }
+
+.pin-input {
+    width: 58px; height: 64px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    background: var(--dark3);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+}
+.pin-input:focus {
+    border-color: var(--accent-light);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+    transform: scale(1.05);
+}
+.pin-input.filled { border-color: var(--accent); }
+
+/* Submit button */
+.btn-login {
+    width: 100%; padding: 11px;
+    background: var(--gradient); color: #fff; border: none;
+    border-radius: 9px; font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 700; cursor: pointer;
+    transition: opacity 0.18s, transform 0.15s, box-shadow 0.18s;
+    box-shadow: 0 4px 16px var(--accent-glow); letter-spacing: 0.2px;
+}
+.btn-login:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 24px var(--accent-glow); }
+.btn-login:active { transform: translateY(0); }
+
+/* Resend */
+.resend-row {
+    text-align: center;
+    font-size: 12px;
+    color: var(--muted);
+    margin: 12px 0;
+}
+.resend-row a { color: var(--accent-light); font-weight: 600; text-decoration: none; transition: color 0.18s; }
+.resend-row a:hover { color: var(--accent); }
+
+/* Divider */
+.divider { display: flex; align-items: center; gap: 10px; color: rgba(255,255,255,0.2); font-size: 11px; margin: 12px 0; }
+.divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* Ghost button */
+.btn-ghost {
+    width: 100%; padding: 10px 13px;
+    background: transparent; border: 1.5px solid var(--border);
+    border-radius: 9px; color: rgba(255,255,255,0.55);
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    cursor: pointer; text-align: center; text-decoration: none;
+    transition: border-color 0.18s, color 0.18s, background 0.18s;
+    display: flex; align-items: center; justify-content: center;
+}
+.btn-ghost:hover { border-color: var(--accent-light); color: var(--accent-light); background: var(--accent-dim); }
+
+@media (max-width: 700px) {
+    .login-card { grid-template-columns: 1fr; overflow-y: auto; max-height: none; }
+    .left-panel { padding: 32px 28px; }
+    .left-content h2 { font-size: 1.5rem; }
+    .right-panel { padding: 32px 28px; }
+    .pin-input { width: 48px; height: 54px; font-size: 1.2rem; }
+}
+</style>
+</head>
+<body>
+
+<button class="login-theme-toggle" onclick="toggleAuthTheme()" aria-label="Toggle dark mode" title="Toggle dark/light mode">
+    <span class="icon-moon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </span>
+    <span class="icon-sun">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </span>
+</button>
+
+<div class="bg-blob bg-blob-1"></div>
+<div class="bg-blob bg-blob-2"></div>
+<div class="bg-blob bg-blob-3"></div>
+
+<div class="login-card">
+
+    <!-- Left Panel -->
+    <div class="left-panel">
+        <div class="brand">
+            <div class="brand-logo">
+                <img src="{{ url_for('auth.static', filename='vote_logo.jpg') }}" alt="Logo">
+            </div>
+            <div>
+                <div class="brand-name">Votely</div>
+                <div class="brand-sub">Official Voting Platform</div>
+            </div>
+        </div>
+
+        <div class="left-content">
+            <h2>Verify Your<br>Identity</h2>
+            <p>Enter the 4-digit OTP sent to your registered email to complete the password reset process.</p>
+        </div>
+
+        <div class="pillars">
+            <span class="pillar">Integrity</span>
+            <span class="pillar">Excellence</span>
+            <span class="pillar">Service</span>
+        </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="right-panel">
+        <h3>Enter OTP</h3>
+        <p class="subtitle">Code sent to <strong style="color:var(--accent-light);">{{ masked_email }}</strong></p>
+
+        <div id="otp-alert" class="alert alert-error alert-hidden"></div>
+
+        <!-- Expiry countdown -->
+        <div class="expiry-row">
+            <span>Code expires in</span>
+            <span id="expiry-countdown">—</span>
+        </div>
+
+        <form id="otpForm">
+            <span class="pin-label">Verification Code</span>
+            <div class="pin-row">
+                <input type="text" name="pin1" id="pin1" class="pin-input" maxlength="1" inputmode="numeric" required autofocus>
+                <input type="text" name="pin2" id="pin2" class="pin-input" maxlength="1" inputmode="numeric" required>
+                <input type="text" name="pin3" id="pin3" class="pin-input" maxlength="1" inputmode="numeric" required>
+                <input type="text" name="pin4" id="pin4" class="pin-input" maxlength="1" inputmode="numeric" required>
+            </div>
+
+            <button type="submit" class="btn-login" id="verifyBtn">Verify OTP</button>
+        </form>
+
+        <!-- Attempts remaining -->
+        <div id="attempts-left" style="text-align:center;font-size:11.5px;font-weight:600;color:var(--muted);margin-top:10px;">
+            5 attempts remaining
+        </div>
+
+        <!-- Resend -->
+        <div class="resend-row" style="margin-top:10px;">
+            {% if resends_left > 0 %}
+                Didn't receive the code?
+                <span id="resend-link-wrap">
+                    <a href="#" id="resend-link" onclick="doResend(event)">Resend OTP</a>
+                </span>
+                <span id="resend-cooldown" style="display:none;color:var(--muted);">Resend in <strong id="cooldown-sec">60</strong>s</span>
+                <br><span style="font-size:11px;color:var(--muted);margin-top:3px;display:block;">{{ resends_left }} resend{{ 's' if resends_left != 1 }} remaining</span>
+            {% else %}
+                <span style="color:#fca5a5;font-weight:600;">No resends remaining.</span>
+            {% endif %}
+        </div>
+
+        <div class="divider">or</div>
+
+        <a href="{{ url_for('auth.forgot_password') }}" class="btn-ghost">&#8592; Back</a>
+    </div>
+
+</div>
+
+<script>
+function toggleAuthTheme() {
+    const isLight = document.documentElement.classList.toggle('light');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+// PIN input behaviour
+const pins = ['pin1','pin2','pin3','pin4'];
+pins.forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.addEventListener('input', function() {
+        this.value = this.value.replace(/\D/g, '');
+        if (this.value) {
+            this.classList.add('filled');
+            if (i < pins.length - 1) document.getElementById(pins[i + 1]).focus();
+        } else {
+            this.classList.remove('filled');
+        }
+    });
+    el.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace' && !this.value && i > 0) {
+            this.classList.remove('filled');
+            document.getElementById(pins[i - 1]).focus();
+        }
+    });
+});
+
+// Expiry countdown
+const expiryTime = new Date('{{ otp_expiry }}').getTime();
+const countdownEl = document.getElementById('expiry-countdown');
+function updateExpiry() {
+    const diff = expiryTime - Date.now();
+    if (diff <= 0) {
+        countdownEl.textContent = 'Expired';
+        countdownEl.style.color = '#fca5a5';
+        clearInterval(expiryTimer);
+        setTimeout(() => { window.location.href = '{{ url_for("auth.forgot_password") }}'; }, 1500);
+        return;
+    }
+    const m = Math.floor(diff / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    countdownEl.textContent = m + ':' + String(s).padStart(2, '0');
+    countdownEl.style.color = diff < 60000 ? '#fca5a5' : 'var(--accent-light)';
+}
+updateExpiry();
+const expiryTimer = setInterval(updateExpiry, 1000);
+
+// Resend cooldown
+let cooldownActive = false;
+function doResend(e) {
+    e.preventDefault();
+    if (cooldownActive) return;
+    cooldownActive = true;
+    document.getElementById('resend-link-wrap').style.display = 'none';
+    const cooldownEl = document.getElementById('resend-cooldown');
+    const secEl      = document.getElementById('cooldown-sec');
+    cooldownEl.style.display = 'inline';
+    let secs = 60;
+    secEl.textContent = secs;
+    const timer = setInterval(() => {
+        secs--;
+        secEl.textContent = secs;
+        if (secs <= 0) {
+            clearInterval(timer);
+            window.location.href = '{{ url_for("auth.resend_forgot_otp") }}';
+        }
+    }, 1000);
+}
+
+// OTP submit
+let attemptsLeft = 5;
+document.getElementById('otpForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn     = document.getElementById('verifyBtn');
+    const alertEl = document.getElementById('otp-alert');
+    btn.disabled  = true;
+    btn.textContent = 'Verifying...';
+
+    const data = new FormData(this);
+    const res  = await fetch('{{ url_for("auth.verify_forgot_password") }}', { method: 'POST', body: data });
+    const json = await res.json();
+
+    btn.disabled = false;
+    btn.textContent = 'Verify OTP';
+
+    if (json.status === 'success') {
+        alertEl.textContent = 'Password reset successfully! Redirecting...';
+        alertEl.className = 'alert alert-success';
+        setTimeout(() => {
+            window.location.href = '{{ url_for("auth.login") }}?success=Password reset successfully. You can now log in.';
+        }, 1000);
+        return;
+    }
+
+    const messages = {
+        expired:      'OTP has expired. Redirecting...',
+        max_attempts: 'Too many failed attempts. Redirecting...',
+        invalid:      'Invalid OTP. Please try again.'
+    };
+    alertEl.textContent = messages[json.status] || 'Something went wrong.';
+    alertEl.className = 'alert alert-error';
+
+    if (json.status === 'invalid') {
+        attemptsLeft--;
+        const el = document.getElementById('attempts-left');
+        if (attemptsLeft <= 0) {
+            el.textContent = 'No attempts remaining.';
+            el.style.color = '#fca5a5';
+        } else {
+            el.textContent = attemptsLeft + ' attempt' + (attemptsLeft !== 1 ? 's' : '') + ' remaining';
+            el.style.color = attemptsLeft <= 2 ? '#fca5a5' : 'var(--muted)';
+        }
+        pins.forEach(id => { const el = document.getElementById(id); el.value = ''; el.classList.remove('filled'); });
+        document.getElementById('pin1').focus();
+    }
+    if (json.status === 'max_attempts' || json.status === 'expired') {
+        setTimeout(() => { window.location.href = '{{ url_for("auth.forgot_password") }}'; }, 2000);
+    }
+});
+
+// Default light theme
+window.addEventListener('DOMContentLoaded', function() {
+    if (!localStorage.getItem('theme')) {
+        localStorage.setItem('theme', 'light');
+    }
+});
+</script>
+</body>
+</html>

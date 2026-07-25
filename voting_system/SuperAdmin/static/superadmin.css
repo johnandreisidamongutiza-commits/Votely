@@ -1,0 +1,20 @@
+/* ── Superadmin accent override: rose/red to signal elevated access ── */
+:root {
+    --accent:      #e11d48;
+    --accent-light:#fb7185;
+    --accent-dim:  rgba(225,29,72,0.1);
+    --accent-glow: rgba(225,29,72,0.22);
+    --gradient:    linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+    --sidebar-active-bg:    rgba(225,29,72,0.18);
+    --sidebar-active-color: #fda4af;
+}
+
+html.dark {
+    --accent:      #fb7185;
+    --accent-light:#fda4af;
+    --accent-dim:  rgba(251,113,133,0.15);
+    --accent-glow: rgba(251,113,133,0.25);
+    --gradient:    linear-gradient(135deg, #fb7185 0%, #f43f5e 100%);
+    --sidebar-active-bg:    rgba(251,113,133,0.18);
+    --sidebar-active-color: #fda4af;
+}

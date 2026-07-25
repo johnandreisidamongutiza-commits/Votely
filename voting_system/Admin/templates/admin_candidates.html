@@ -1,0 +1,708 @@
+{% extends 'base.html' %}
+{% block title %}Candidates{% endblock %}
+{% block page_title %}Candidates{% endblock %}
+
+{% block content %}
+    <div class="page-header">
+        <div class="page-header-left">
+            <h2>Candidates</h2>
+            <p>Manage candidates and positions per election</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button class="btn-primary" onclick="openAddPositionModal()">+ Add Position</button>
+            <button class="btn-primary" onclick="openAddCandidateModal()">+ Add Candidate</button>
+            <button class="btn-primary" onclick="openImportModal()" style="background:var(--gradient);">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import via Excel
+            </button>
+        </div>
+    </div>
+    <div class="card">
+        <div class="form-group" style="max-width:320px;margin-bottom:16px;">
+            <label>Filter by Election</label>
+            <select id="candidateElectionFilter" onchange="loadCandidates()">
+                <option value="">-- Select Election --</option>
+                {% for election in elections %}
+                {% if election.status == 'draft' %}
+                <option value="{{ election.id }}">{{ election.title }}</option>
+                {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div id="candidates-table-wrap">
+            <div class="empty-state">
+                <div class="empty-state-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <h4>No election selected</h4>
+                <p>Select an election above to view and manage its candidates.</p>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block modals %}
+    <!-- IMPORT VIA EXCEL MODAL -->
+    <div class="modal-overlay" id="importCandModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Import Candidates via Excel</h3><p>Bulk add candidates from a .xlsx file.</p></div>
+                <button class="modal-close" onclick="closeImportModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="import-alert" class="modal-alert" style="display:none;"></div>
+            <form id="importCandForm" enctype="multipart/form-data">
+                <div style="margin:0 28px 16px;padding:12px 16px;background:#eff6ff;border-left:4px solid #3b82f6;border-radius:8px;font-size:13px;color:#1e40af;line-height:1.7;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg> <strong>Instructions:</strong><br>
+                    • Only <strong>.xlsx</strong> files are accepted (max 30 rows)<br>
+                    • Required columns: <strong>firstname</strong>, <strong>lastname</strong>, <strong>position</strong><br>
+                    • The position must already exist for the selected election<br>
+                    • Duplicate candidates will be skipped automatically<br>
+                    • <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Photos cannot be imported via Excel. Add them individually after import using the <strong>Edit</strong> button.<br>
+                    • <a href="/admin/download-candidate-template" style="color:#2563eb;font-weight:600;display:inline-flex;align-items:center;gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download Template</a>
+                </div>
+                <div class="form-group">
+                    <label>Election <span class="label-required">*</span></label>
+                    <select name="election_id" id="import-election-id" required>
+                        <option value="">-- Select Election --</option>
+                        {% for election in elections %}
+                        {% if election.status == 'draft' %}
+                        <option value="{{ election.id }}">{{ election.title }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                    <span class="cand-field-error" id="err-import-election"></span>
+                </div>
+                <div class="form-group">
+                    <label>Excel File <span class="label-required">*</span></label>
+                    <input type="file" name="file" id="import-file" accept=".xlsx" required>
+                    <span class="cand-field-error" id="err-import-file"></span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeImportModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</button>
+                    <button type="submit" class="btn-primary" id="importSubmitBtn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Import</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DELETE CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="candDeleteModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Confirm Delete</h3><p>This action cannot be undone.</p></div>
+                <button class="modal-close" onclick="closeCandDeleteModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div style="padding: 20px 28px 28px;">
+                <div class="alert-error" style="margin-bottom:20px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    You are about to delete <strong id="cand-delete-name"></strong>. <span id="cand-delete-warning"></span>
+                </div>
+                <div class="modal-actions" style="border-top:none; margin-top:0; padding-top:0;">
+                    <button class="btn-secondary" onclick="closeCandDeleteModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</button>
+                    <button class="btn-delete" id="cand-delete-confirm-btn" onclick="executeCandDelete()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg> Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD POSITION MODAL -->
+    <div class="modal-overlay" id="addPositionModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Add Position</h3><p>Create a position for an election.</p></div>
+                <button class="modal-close" onclick="closeAddPositionModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="pos-alert" class="modal-alert" style="display:none;"></div>
+            <form id="addPositionForm">
+                <div class="form-group">
+                    <label>Election <span class="label-required">*</span></label>
+                    <select name="election_id" id="pos-election-id" required>
+                        <option value="">-- Select Election --</option>
+                        {% for election in elections %}
+                        {% if election.status == 'draft' %}
+                        <option value="{{ election.id }}">{{ election.title }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Position Name <span class="label-required">*</span></label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+                        {% for preset in ['President','Vice President','Secretary','Treasurer','Auditor'] %}
+                        <button type="button" onclick="setPositionPreset('{{ preset }}')" style="padding:4px 12px;border-radius:100px;border:1.5px solid var(--border);background:var(--card);color:var(--text-muted);font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.14s;" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)';this.style.background='var(--accent-dim)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-muted)';this.style.background='var(--card)'">{{ preset }}</button>
+                        {% endfor %}
+                    </div>
+                    <input type="text" name="name" id="pos-name-input" required placeholder="e.g. President" autocomplete="off">
+                    <span id="pos-name-error" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;text-align:center;"></span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeAddPositionModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</button>
+                    <button type="submit" class="btn-primary" id="posSubmitBtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> Add Position</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ADD CANDIDATE MODAL -->
+    <div class="modal-overlay" id="addCandidateModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Add Candidate</h3><p>Register a new candidate.</p></div>
+                <button class="modal-close" onclick="closeAddCandidateModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="cand-alert" class="modal-alert" style="display:none;"></div>
+            <form id="addCandidateForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label>Election <span class="label-required">*</span></label>
+                    <select name="election_id" id="cand-election-id" required onchange="loadPositionsForSelect('cand-election-id','cand-position-id'); candClearError('cand-election-id');">
+                        <option value="">-- Select Election --</option>
+                        {% for election in elections %}
+                        {% if election.status == 'draft' %}
+                        <option value="{{ election.id }}">{{ election.title }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                    <span class="cand-field-error" id="err-cand-election"></span>
+                </div>
+                <div class="form-group">
+                    <label>Position <span class="label-required">*</span></label>
+                    <select name="position_id" id="cand-position-id" required onchange="candClearError('cand-position-id');">
+                        <option value="">-- Select Position --</option>
+                    </select>
+                    <span class="cand-field-error" id="err-cand-position"></span>
+                    <span id="no-positions-hint" style="display:none;font-size:12px;color:#f59e0b;font-weight:600;margin-top:5px;display:none;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        No positions found for this election. <a href="#" onclick="closeAddCandidateModal(); openAddPositionModal(); return false;" style="color:#d97706;font-weight:700;text-decoration:underline;">Add a position first.</a>
+                    </span>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>First Name <span class="label-required">*</span></label>
+                        <input type="text" name="firstname" id="cand-firstname" required autocomplete="off"
+                            oninput="candValidateName('cand-firstname','err-cand-firstname')"
+                            onblur="candNormalizeName('cand-firstname','err-cand-firstname')">
+                        <span class="cand-field-error" id="err-cand-firstname"></span>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name <span class="label-required">*</span></label>
+                        <input type="text" name="lastname" id="cand-lastname" required autocomplete="off"
+                            oninput="candValidateName('cand-lastname','err-cand-lastname')"
+                            onblur="candNormalizeName('cand-lastname','err-cand-lastname')">
+                        <span class="cand-field-error" id="err-cand-lastname"></span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Photo <span style="font-weight:400;font-size:12px;color:var(--text-muted);">— optional</span></label>
+                    <input type="file" name="photo" id="cand-photo" accept="image/*" onchange="candValidatePhoto()">
+                    <span class="cand-field-error" id="err-cand-photo"></span>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeAddCandidateModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</button>
+                    <button type="submit" class="btn-primary" id="candSubmitBtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> Add Candidate</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT CANDIDATE MODAL -->
+    <div class="modal-overlay" id="editCandidateModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Edit Candidate</h3><p>Update candidate details.</p></div>
+                <button class="modal-close" onclick="closeEditCandidateModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="edit-cand-alert" class="modal-alert" style="display:none;"></div>
+            <form id="editCandidateForm" enctype="multipart/form-data">
+                <input type="hidden" id="ec-id">
+                <div class="form-group">
+                    <label>Position <span class="label-required">*</span></label>
+                    <select name="position_id" id="ec-position-id" required></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>First Name <span class="label-required">*</span></label>
+                        <input type="text" name="firstname" id="ec-firstname" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Last Name <span class="label-required">*</span></label>
+                        <input type="text" name="lastname" id="ec-lastname" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Photo <span style="font-weight:400;font-size:12px;color:var(--text-muted);">— leave blank to keep current</span></label>
+                    <input type="file" name="photo" accept="image/*">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeEditCandidateModal()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel</button>
+                    <button type="submit" class="btn-primary" id="editCandSubmitBtn"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+    .cand-field-error { font-size:11.5px; color:#dc2626; font-weight:600; margin-top:4px; display:block; min-height:16px; text-align:center; }
+</style>
+<script>
+    function setPositionPreset(name) {
+        posNameInput.value = name;
+        posNameInput.dispatchEvent(new Event('input'));
+        posNameInput.dispatchEvent(new Event('blur'));
+        posNameInput.focus();
+    }
+
+    function openAddPositionModal() { const m=document.getElementById('addPositionModal'); m.style.display='flex'; document.body.style.overflow='hidden'; }
+    function closeAddPositionModal() { const m=document.getElementById('addPositionModal'); m.style.display='none'; document.body.style.overflow=''; document.getElementById('addPositionForm').reset(); document.getElementById('pos-alert').style.display='none'; posNameInput.style.borderColor=''; posNameError.textContent=''; }
+    function closeAddPositionModalOutside(e) { if (e.target.id==='addPositionModal') closeAddPositionModal(); }
+
+    function openAddCandidateModal() { const m=document.getElementById('addCandidateModal'); m.style.display='flex'; document.body.style.overflow='hidden'; }
+    function closeAddCandidateModal() {
+        const m=document.getElementById('addCandidateModal'); m.style.display='none';
+        document.body.style.overflow='';
+        document.getElementById('addCandidateForm').reset();
+        document.getElementById('cand-alert').style.display='none';
+        document.getElementById('cand-position-id').innerHTML='<option value="">-- Select Position --</option>';
+        const hint = document.getElementById('no-positions-hint');
+        if (hint) hint.style.display = 'none';
+        ['cand-firstname','cand-lastname','cand-student-id','cand-photo'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.borderColor = '';
+        });
+        ['err-cand-election','err-cand-position','err-cand-firstname','err-cand-lastname','err-cand-student-id','err-cand-photo'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.textContent = '';
+        });
+    }
+    function closeAddCandidateModalOutside(e) { if (e.target.id==='addCandidateModal') closeAddCandidateModal(); }
+
+    function closeEditCandidateModal() { const m=document.getElementById('editCandidateModal'); m.style.display='none'; document.body.style.overflow=''; document.getElementById('editCandidateForm').reset(); document.getElementById('edit-cand-alert').style.display='none'; }
+    function closeEditCandidateModalOutside(e) { if (e.target.id==='editCandidateModal') closeEditCandidateModal(); }
+
+    function openImportModal() { document.getElementById('importCandModal').style.display='flex'; document.body.style.overflow='hidden'; }
+    function closeImportModal() {
+        document.getElementById('importCandModal').style.display='none';
+        document.body.style.overflow='';
+        document.getElementById('importCandForm').reset();
+        document.getElementById('import-alert').style.display='none';
+        document.getElementById('err-import-election').textContent='';
+        document.getElementById('err-import-file').textContent='';
+    }
+
+    document.getElementById('importCandForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('importSubmitBtn');
+        const electionId = document.getElementById('import-election-id').value;
+        const file = document.getElementById('import-file').files[0];
+        let valid = true;
+
+        if (!electionId) {
+            document.getElementById('err-import-election').textContent = 'Please select an election.';
+            valid = false;
+        } else { document.getElementById('err-import-election').textContent = ''; }
+
+        if (!file) {
+            document.getElementById('err-import-file').textContent = 'Please select a file.';
+            valid = false;
+        } else if (!file.name.endsWith('.xlsx')) {
+            document.getElementById('err-import-file').textContent = 'Only .xlsx files are accepted.';
+            valid = false;
+        } else { document.getElementById('err-import-file').textContent = ''; }
+
+        if (!valid) return;
+
+        btn.disabled = true; btn.textContent = 'Importing...';
+        const formData = new FormData(this);
+        let json = null;
+        try {
+            const res = await fetch('{{ url_for("admin.import_candidates") }}', { method: 'POST', body: formData });
+            json = await res.json();
+        } catch (err) {
+            const a = document.getElementById('import-alert');
+            a.textContent = 'Failed to import. Please try again.';
+            a.className = 'modal-alert modal-alert-error';
+            a.style.display = 'block';
+            btn.disabled = false; btn.textContent = '📥 Import';
+            return;
+        }
+        btn.disabled = false; btn.textContent = '📥 Import';
+        const a = document.getElementById('import-alert');
+        if (json.success) {
+            a.textContent = json.message;
+            a.className = 'modal-alert modal-alert-success';
+            a.style.display = 'block';
+            document.getElementById('candidateElectionFilter').value = electionId;
+            loadCandidates();
+        } else {
+            a.textContent = json.error;
+            a.style.display = 'block';
+        }
+    });
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeAddPositionModal(); closeAddCandidateModal(); closeEditCandidateModal(); closeCandDeleteModal(); closeImportModal(); } });
+
+    async function loadPositionsForSelect(electionSelectId, positionSelectId) {
+        const electionId = document.getElementById(electionSelectId).value;
+        const posSelect = document.getElementById(positionSelectId);
+        posSelect.innerHTML = '<option value="">-- Select Position --</option>';
+        const hint = document.getElementById('no-positions-hint');
+        if (hint) hint.style.display = 'none';
+        if (!electionId) return;
+        const positions = await fetch(`/admin/get-positions/${electionId}`).then(r => r.json());
+        if (!positions.length && hint) hint.style.display = 'block';
+        positions.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; posSelect.appendChild(o); });
+    }
+
+    async function openEditCandidateModal(id, firstname, lastname, positionId, electionId) {
+        document.getElementById('ec-id').value = id;
+        document.getElementById('ec-firstname').value = firstname;
+        document.getElementById('ec-lastname').value = lastname;
+        const posSelect = document.getElementById('ec-position-id');
+        posSelect.innerHTML = '<option value="">-- Select Position --</option>';
+        const positions = await fetch(`/admin/get-positions/${electionId}`).then(r => r.json());
+        positions.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; if (p.id == positionId) o.selected = true; posSelect.appendChild(o); });
+        const m=document.getElementById('editCandidateModal'); m.style.display='flex'; document.body.style.overflow='hidden';
+    }
+
+    const RESERVED_WORDS = ['admin', 'system', 'null', 'undefined', 'root', 'test', 'none', 'n/a'];
+    const POS_REGEX = /^[A-Za-z][A-Za-z\s-]{1,48}[A-Za-z]$/;
+
+    function titleCasePos(val) {
+        return val.replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function validatePositionName(val) {
+        val = val.replace(/\s+/g, ' ').trim();
+        if (!val)                              return 'Position name is required.';
+        if (val.length < 2)                    return 'Position name must be at least 2 characters.';
+        if (val.length > 50)                   return 'Position name must not exceed 50 characters.';
+        if (!POS_REGEX.test(val))              return 'Must start and end with a letter. Only letters, spaces, and hyphens allowed.';
+        if (/--/.test(val))                    return 'Multiple consecutive hyphens are not allowed.';
+        if (RESERVED_WORDS.includes(val.toLowerCase())) return `"${val}" is a reserved word and cannot be used.`;
+        return null;
+    }
+
+    function getExistingPositions() {
+        return Array.from(document.querySelectorAll('#candidates-table-wrap strong[data-pos-name]'))
+            .map(el => el.textContent.trim().toLowerCase());
+    }
+
+    const posNameInput = document.getElementById('pos-name-input');
+    const posNameError = document.getElementById('pos-name-error');
+
+    posNameInput.addEventListener('input', function() {
+        const err = validatePositionName(this.value);
+        posNameError.textContent = err || '';
+        this.style.borderColor = err ? '#ef4444' : (this.value.trim() ? '#16a34a' : '');
+    });
+
+    posNameInput.addEventListener('blur', function() {
+        let val = this.value.replace(/\s+/g, ' ').trim();
+        val = titleCasePos(val);
+        this.value = val;
+        const err = validatePositionName(val);
+        posNameError.textContent = err || '';
+        this.style.borderColor = err ? '#ef4444' : (val ? '#16a34a' : '');
+    });
+
+    document.getElementById('addPositionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('posSubmitBtn');
+
+        // Normalize
+        let val = posNameInput.value.replace(/\s+/g, ' ').trim();
+        val = titleCasePos(val);
+        posNameInput.value = val;
+
+        const err = validatePositionName(val);
+        if (err) {
+            posNameError.textContent = err;
+            posNameInput.style.borderColor = '#ef4444';
+            return;
+        }
+
+        // Client-side duplicate check against already loaded positions
+        const existing = getExistingPositions();
+        if (existing.includes(val.toLowerCase())) {
+            posNameError.textContent = `"${val}" already exists for this election.`;
+            posNameInput.style.borderColor = '#ef4444';
+            return;
+        }
+
+        btn.disabled = true; btn.textContent = 'Adding...';
+        const formData = new FormData(this);
+        formData.set('name', val);
+        const electionId = formData.get('election_id');
+        let json = null;
+        try {
+            const res = await fetch('{{ url_for("admin.add_position") }}', { method: 'POST', body: formData });
+            json = await res.json();
+        } catch (error) {
+            const a = document.getElementById('pos-alert');
+            a.textContent = 'Failed to add position. Please try again.';
+            a.style.display = 'block';
+            return;
+        } finally {
+            btn.disabled = false; btn.textContent = 'Add Position';
+        }
+        if (json.success) {
+            closeAddPositionModal();
+            document.getElementById('candidateElectionFilter').value = electionId;
+            loadCandidates();
+        } else {
+            const a = document.getElementById('pos-alert'); a.textContent = json.error; a.style.display = 'block';
+        }
+    });
+
+    const CAND_FIRSTNAME_REGEX = /^[A-Za-z\s'\-]{3,30}$/;
+    const CAND_LASTNAME_REGEX  = /^[A-Za-z\s'\-]{3,30}$/;
+    const MAX_PHOTO_MB = 5;
+
+    function candSetError(errId, inputId, msg) {
+        const err = document.getElementById(errId);
+        const el  = document.getElementById(inputId);
+        if (err) err.textContent = msg;
+        if (el)  el.style.borderColor = msg ? '#ef4444' : '#16a34a';
+    }
+    function candClearError(inputId) {
+        const el = document.getElementById(inputId);
+        if (el) el.style.borderColor = '';
+    }
+
+    function candValidateName(inputId, errId) {
+        const el    = document.getElementById(inputId);
+        const val   = el.value.replace(/\s+/g, ' ').trim();
+        const regex = inputId === 'cand-firstname' ? CAND_FIRSTNAME_REGEX : CAND_LASTNAME_REGEX;
+        if (!val)               { candSetError(errId, inputId, 'This field is required.'); return false; }
+        if (val.length < 3)     { candSetError(errId, inputId, 'Must be at least 3 characters.'); return false; }
+        if (val.length > 30)    { candSetError(errId, inputId, 'Must not exceed 30 characters.'); return false; }
+        if (!regex.test(val))   { candSetError(errId, inputId, 'Only letters, spaces, hyphens, and apostrophes allowed.'); return false; }
+        candSetError(errId, inputId, '');
+        return true;
+    }
+
+    function candNormalizeName(inputId, errId) {
+        const el = document.getElementById(inputId);
+        let val  = el.value.replace(/\s+/g, ' ').trim();
+        // Title case — capitalize first letter of each word
+        val = val.replace(/\b\w/g, c => c.toUpperCase());
+        el.value = val;
+        candValidateName(inputId, errId);
+    }
+
+    function candValidatePhoto() {
+        const el  = document.getElementById('cand-photo');
+        const err = document.getElementById('err-cand-photo');
+        if (!el.files || !el.files[0]) {
+            err.textContent = '';
+            el.style.borderColor = '';
+            return true;
+        }
+        const sizeMB = el.files[0].size / (1024 * 1024);
+        if (sizeMB > MAX_PHOTO_MB) {
+            err.textContent = `Photo must be under ${MAX_PHOTO_MB}MB (current: ${sizeMB.toFixed(1)}MB).`;
+            el.style.borderColor = '#ef4444';
+            return false;
+        }
+        err.textContent = '';
+        el.style.borderColor = '#16a34a';
+        return true;
+    }
+
+    function getLoadedCandidates(electionId, positionId) {
+        // Read from the currently rendered table
+        const rows = document.querySelectorAll('#candidates-table-wrap tbody tr');
+        const results = [];
+        rows.forEach(row => {
+            const nameEl = row.querySelector('td:nth-child(2) strong');
+            if (!nameEl) return;
+            // Find which position section this row belongs to
+            let section = row.closest('div[style*="margin-bottom"]');
+            if (!section) return;
+            const posBtn = section.querySelector('button.btn-delete');
+            if (!posBtn) return;
+            const onclickAttr = posBtn.getAttribute('onclick') || '';
+            const match = onclickAttr.match(/'position',\s*(\d+)/);
+            if (!match) return;
+            if (parseInt(match[1]) === parseInt(positionId)) {
+                results.push(nameEl.textContent.trim().toLowerCase());
+            }
+        });
+        return results;
+    }
+
+    document.getElementById('addCandidateForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('candSubmitBtn');
+
+        const electionId = document.getElementById('cand-election-id').value;
+        const positionId = document.getElementById('cand-position-id').value;
+
+        let valid = true;
+
+        // Election
+        if (!electionId) {
+            document.getElementById('err-cand-election').textContent = 'Please select an election.';
+            valid = false;
+        } else { document.getElementById('err-cand-election').textContent = ''; }
+
+        // Position
+        if (!positionId) {
+            document.getElementById('err-cand-position').textContent = 'Please select a position.';
+            valid = false;
+        } else { document.getElementById('err-cand-position').textContent = ''; }
+
+        // Names
+        if (!candValidateName('cand-firstname', 'err-cand-firstname')) valid = false;
+        if (!candValidateName('cand-lastname',  'err-cand-lastname'))  valid = false;
+
+        // Photo (optional — only validate size if provided)
+        if (!candValidatePhoto()) valid = false;
+
+        if (!valid) return;
+
+        // Normalize names
+        candNormalizeName('cand-firstname', 'err-cand-firstname');
+        candNormalizeName('cand-lastname',  'err-cand-lastname');
+
+        const firstname = document.getElementById('cand-firstname').value.trim();
+        const lastname  = document.getElementById('cand-lastname').value.trim();
+        const fullname  = `${firstname} ${lastname}`.toLowerCase();
+
+        // Duplicate check against loaded table
+        const existing = getLoadedCandidates(electionId, positionId);
+        if (existing.includes(fullname)) {
+            document.getElementById('err-cand-lastname').textContent = `"${firstname} ${lastname}" already exists in this position.`;
+            document.getElementById('cand-lastname').style.borderColor = '#ef4444';
+            return;
+        }
+
+        btn.disabled = true; btn.textContent = 'Adding...';
+        const formData = new FormData(this);
+        formData.set('firstname', firstname);
+        formData.set('lastname',  lastname);
+        let json = null;
+        try {
+            const res = await fetch('{{ url_for("admin.add_candidate") }}', { method: 'POST', body: formData });
+            json = await res.json();
+        } catch (error) {
+            const a = document.getElementById('cand-alert');
+            a.textContent = 'Failed to add candidate. Please try again.';
+            a.style.display = 'block';
+            return;
+        } finally {
+            btn.disabled = false; btn.textContent = 'Add Candidate';
+        }
+        if (json.success) {
+            closeAddCandidateModal();
+            document.getElementById('candidateElectionFilter').value = electionId;
+            loadCandidates();
+        } else {
+            const a = document.getElementById('cand-alert'); a.textContent = json.error; a.style.display = 'block';
+        }
+    });
+
+    document.getElementById('editCandidateForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('editCandSubmitBtn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        const id = document.getElementById('ec-id').value;
+        const json = await fetch(`/admin/edit-candidate/${id}`, { method: 'POST', body: new FormData(this) }).then(r => r.json());
+        if (json.success) { closeEditCandidateModal(); loadCandidates(); }
+        else { const a = document.getElementById('edit-cand-alert'); a.textContent = json.error; a.style.display = 'block'; }
+        btn.disabled = false; btn.textContent = 'Save Changes';
+    });
+
+    let pendingDeleteType = null;
+    let pendingDeleteId = null;
+
+    function openCandDeleteModal(type, id, name) {
+        pendingDeleteType = type;
+        pendingDeleteId = id;
+        document.getElementById('cand-delete-name').textContent = name;
+        document.getElementById('cand-delete-warning').textContent = type === 'position'
+            ? 'All candidates under this position will also be deleted.'
+            : 'This candidate will be permanently removed.';
+        const m=document.getElementById('candDeleteModal'); m.style.display='flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeCandDeleteModal() {
+        const m=document.getElementById('candDeleteModal'); m.style.display='none';
+        document.body.style.overflow = '';
+        pendingDeleteType = null;
+        pendingDeleteId = null;
+    }
+    function closeCandDeleteModalOutside(e) { if (e.target.id === 'candDeleteModal') closeCandDeleteModal(); }
+
+    async function executeCandDelete() {
+        const btn = document.getElementById('cand-delete-confirm-btn');
+        btn.disabled = true; btn.textContent = 'Deleting...';
+        const url = pendingDeleteType === 'position'
+            ? `/admin/delete-position/${pendingDeleteId}`
+            : `/admin/delete-candidate/${pendingDeleteId}`;
+        const json = await fetch(url).then(r => r.json());
+        closeCandDeleteModal();
+        btn.disabled = false; btn.textContent = '🗑 Delete';
+        if (json.success) loadCandidates();
+    }
+
+    async function loadCandidates() {
+        const electionId = document.getElementById('candidateElectionFilter').value;
+        const wrap = document.getElementById('candidates-table-wrap');
+        if (!electionId) { wrap.innerHTML = '<p class="empty-msg">Select an election to view candidates.</p>'; return; }
+
+        const [candidates, positions] = await Promise.all([
+            fetch(`/admin/get-candidates/${electionId}`).then(r => r.json()),
+            fetch(`/admin/get-positions/${electionId}`).then(r => r.json())
+        ]);
+
+        // Check if election is ended
+        const allElections = {{ elections | tojson }};
+        const selectedElection = allElections.find(e => String(e.id) === String(electionId));
+        const isEnded = selectedElection && selectedElection.status === 'ended';
+
+        // Disable/enable Add buttons based on status
+        const addPosBtn  = document.querySelector('button[onclick="openAddPositionModal()"]');
+        const addCandBtn = document.querySelector('button[onclick="openAddCandidateModal()"]');
+        const importBtn  = document.querySelector('button[onclick="openImportModal()"]');
+        if (isEnded) {
+            addPosBtn.disabled  = true;
+            addCandBtn.disabled = true;
+            importBtn.disabled  = true;
+            addPosBtn.title     = 'Cannot add positions to an ended election';
+            addCandBtn.title    = 'Cannot add candidates to an ended election';
+            importBtn.title     = 'Cannot import candidates to an ended election';
+        } else {
+            addPosBtn.disabled  = false;
+            addCandBtn.disabled = false;
+            importBtn.disabled  = false;
+            addPosBtn.title     = '';
+            addCandBtn.title    = '';
+            importBtn.title     = '';
+        }
+
+        if (!positions.length) { wrap.innerHTML = '<p class="empty-msg">No positions yet. Click "+ Add Position" to create one.</p>'; return; }
+        let html = '';
+        if (isEnded) {
+            html += '<div style="margin-bottom:16px;padding:10px 16px;background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;font-size:13px;color:#b91c1c;">🚫 This election has ended. Positions and candidates cannot be added or modified.</div>';
+        }
+        positions.forEach(pos => {
+            const posCandidates = candidates.filter(c => c.position_id === pos.id);
+            html += `<div style="margin-bottom:24px;"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><strong data-pos-name style="font-size:15px;text-align:center;flex:1;">${pos.name}</strong>${isEnded ? '' : `<button class="btn-delete" onclick="openCandDeleteModal('position',${pos.id},'${pos.name}')">Delete Position</button>`}</div>`;
+            if (posCandidates.length) {
+                html += `<div class="table-wrap"><table style="table-layout:fixed;width:100%;"><colgroup><col style="width:80px;"><col style="width:auto;"><col style="width:160px;"></colgroup><thead><tr><th style="text-align:center;">Photo</th><th style="text-align:center;">Name</th><th style="text-align:center;">Actions</th></tr></thead><tbody>`;
+                posCandidates.forEach(c => {
+                    const initials = (c.firstname[0] + c.lastname[0]).toUpperCase();
+                    const photo = c.photo
+                        ? `<img src="/admin/uploads/${c.photo}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">`
+                        : `<div style="width:40px;height:40px;border-radius:50%;background:var(--gradient);color:#fff;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;">${initials}</div>`;
+                    const actions = isEnded ? '' : `<button class="btn-edit" onclick="openEditCandidateModal(${c.id},'${c.firstname}','${c.lastname}',${c.position_id},${c.election_id})">Edit</button> <button class="btn-delete" onclick="openCandDeleteModal('candidate',${c.id},'${c.firstname} ${c.lastname}')">Delete</button>`;
+                    html += `<tr><td style="text-align:center;"><div style="display:flex;justify-content:center;">${photo}</div></td><td style="text-align:center;"><strong>${c.firstname} ${c.lastname}</strong></td><td style="text-align:center;white-space:nowrap;">${actions}</td></tr>`;
+                });
+                html += `</tbody></table></div>`;
+            } else { html += `<p class="empty-msg" style="margin:0;">No candidates for this position yet.</p>`; }
+            html += `</div>`;
+        });
+        wrap.innerHTML = html;
+    }
+</script>
+{% endblock %}

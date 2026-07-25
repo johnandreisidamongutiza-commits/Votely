@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vote Confirmed — {{ election.title }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('admin.static', filename='dashboard.css') }}">
+    <script>if (localStorage.getItem('theme') === 'dark') { document.documentElement.classList.add('dark'); }</script>
+    <style>
+        .confirm-wrap { max-width: 600px; margin: 0 auto; }
+        .confirm-hero { background: var(--card); border-radius: var(--radius); border: 1px solid #22c55e44; box-shadow: var(--shadow); padding: 40px 32px; text-align: center; margin-bottom: 24px; }
+        .confirm-icon { font-size: 56px; margin-bottom: 16px; }
+        .confirm-title { font-size: 24px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+        .confirm-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 4px; }
+        .confirm-election { font-size: 15px; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+        .confirm-time { font-size: 12px; color: var(--text-muted); }
+        .votes-card { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 24px; }
+        .votes-card-header { padding: 16px 24px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; }
+        .vote-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 24px; border-bottom: 1px solid var(--border); font-size: 14px; }
+        .vote-row:last-child { border-bottom: none; }
+        .vote-position { color: var(--text-muted); font-size: 13px; }
+        .vote-candidate { display: flex; align-items: center; gap: 10px; font-weight: 600; color: var(--text); }
+        .vote-photo { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+        .vote-initials { width: 32px; height: 32px; border-radius: 50%; background: var(--gradient); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+        .confirm-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+        .btn-primary { background: var(--gradient); color: #fff; padding: 12px 28px; border-radius: var(--radius-sm); text-decoration: none; font-size: 14px; font-weight: 700; transition: opacity 0.2s; }
+        .btn-primary:hover { opacity: 0.88; }
+        .btn-secondary { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); padding: 12px 28px; border-radius: var(--radius-sm); text-decoration: none; font-size: 14px; font-weight: 700; transition: background 0.2s; }
+        .btn-secondary:hover { background: var(--accent-dim); }
+        .notif-wrap { position: relative; }
+        .notif-btn { background: none; border: none; cursor: pointer; padding: 6px; position: relative; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+        .notif-badge { position: absolute; top: 2px; right: 2px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 5px; min-width: 16px; text-align: center; display: none; }
+        .notif-dropdown { position: absolute; top: calc(100% + 10px); right: 0; width: 320px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 32px rgba(0,0,0,0.18); z-index: 9999; display: none; overflow: hidden; }
+        .notif-dropdown.open { display: block; }
+        .notif-header { padding: 12px 16px; font-size: 13px; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); }
+        .notif-list { max-height: 320px; overflow-y: auto; }
+        .notif-item { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); display: flex; gap: 10px; align-items: flex-start; }
+        .notif-item.unread { background: #eff6ff; }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .notif-msg { flex: 1; line-height: 1.4; }
+        .notif-time { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+        .notif-empty { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-icon">
+                <img src="{{ url_for('admin.static', filename='uploads/vote_logo.jpg') }}" alt="Logo" style="width:38px;height:38px;object-fit:cover;border-radius:10px;display:block;">
+            </div>
+            <div class="sidebar-logo-text">
+                <strong>Votely</strong>
+                <span>Voter Panel</span>
+            </div>
+        </div>
+        <nav class="sidebar-nav">
+            <p class="nav-label">Menu</p>
+            <a href="{{ url_for('user.dashboard') }}" class="nav-link active">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></span>
+                <span class="nav-label-text">Elections</span>
+                <span class="nav-tooltip">Elections</span>
+            </a>
+            <a href="{{ url_for('user.history') }}" class="nav-link">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                <span class="nav-label-text">My History</span>
+                <span class="nav-tooltip">My History</span>
+            </a>
+            <a href="{{ url_for('user.profile') }}" class="nav-link">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                <span class="nav-label-text">Profile</span>
+                <span class="nav-tooltip">Profile</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                {% if profile_photo %}
+                <img src="{{ url_for('user.static', filename='profile_photos/' + profile_photo) }}" alt="Profile photo" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+                {% else %}
+                <div class="sidebar-avatar">{{ username[0].upper() if username else 'U' }}</div>
+                {% endif %}
+                <div class="sidebar-user-info">
+                    <strong>{{ username }}</strong>
+                    <span>Voter</span>
+                </div>
+            </div>
+            <a href="{{ url_for('auth.logout_user') }}" class="sidebar-logout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span class="logout-text">Logout</span>
+                <span class="nav-tooltip">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <div class="main-wrap" id="mainWrap">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()" aria-label="Toggle menu">
+                    <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+                </button>
+                <div class="topbar-title-wrap">
+                    <span class="topbar-eyebrow">Voter Panel</span>
+                    <h1 class="topbar-title">Vote Confirmation</h1>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark/light mode">
+                    <span class="icon-sun">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    </span>
+                    <span class="icon-moon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    </span>
+                </button>
+                <div class="notif-wrap">
+                    <button class="notif-btn" id="notifBtn" onclick="toggleNotif()" aria-label="Notifications">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <span class="notif-badge" id="notifBadge"></span>
+                    </button>
+                    <div class="notif-dropdown" id="notifDropdown">
+                        <div class="notif-header">🔔 Notifications</div>
+                        <div class="notif-list" id="notifList"><div class="notif-empty">No notifications yet.</div></div>
+                    </div>
+                </div>
+                <div class="topbar-user">
+                    {% if profile_photo %}
+                    <img src="{{ url_for('user.static', filename='profile_photos/' + profile_photo) }}" alt="Profile photo" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+                    {% else %}
+                    <div class="topbar-avatar">{{ username[0].upper() if username else 'U' }}</div>
+                    {% endif %}
+                    <div class="topbar-user-info">
+                        <span class="topbar-user-name">{{ username }}</span>
+                        <span class="topbar-user-role">Voter</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+            <div class="confirm-wrap">
+                <!-- Hero -->
+                <div class="confirm-hero">
+                    <div class="confirm-icon">🗳️</div>
+                    <div class="confirm-title">Your Vote Has Been Recorded!</div>
+                    <div class="confirm-subtitle">You have successfully cast your vote for</div>
+                    <div class="confirm-election">{{ election.title }}</div>
+                    <div class="confirm-time">Submitted on {{ submitted_at }}</div>
+                </div>
+
+                <!-- Vote Summary -->
+                {% if my_votes %}
+                <div class="votes-card">
+                    <div class="votes-card-header">📋 Your Votes</div>
+                    {% for vote in my_votes %}
+                    <div class="vote-row">
+                        <span class="vote-position">{{ vote.position_name }}</span>
+                        <span class="vote-candidate">
+                            {% if vote.photo %}
+                            <img src="/admin/uploads/{{ vote.photo }}" class="vote-photo">
+                            {% else %}
+                            <div class="vote-initials">{{ vote.firstname[0] }}{{ vote.lastname[0] }}</div>
+                            {% endif %}
+                            {{ vote.firstname }} {{ vote.lastname }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Actions -->
+                <div class="confirm-actions">
+                    <a href="{{ url_for('user.dashboard') }}" class="btn-primary" style="display:inline-flex;align-items:center;gap:7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>Back to Dashboard</a>
+                    <a href="{{ url_for('user.results', election_id=election.id) }}" class="btn-secondary" style="display:inline-flex;align-items:center;gap:7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>View Live Results</a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <script>
+        const sidebar = document.getElementById('sidebar');
+        const wrap    = document.getElementById('mainWrap');
+        const btn     = document.getElementById('menuBtn');
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+        if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth > 900) {
+            sidebar.style.transition = 'none'; wrap.style.transition = 'none';
+            sidebar.classList.add('collapsed'); wrap.classList.add('expanded'); btn.classList.add('is-open');
+            requestAnimationFrame(() => requestAnimationFrame(() => { sidebar.style.transition = ''; wrap.style.transition = ''; }));
+        }
+        function toggleSidebar() {
+            const overlay = document.getElementById('sidebar-overlay');
+            if (window.innerWidth <= 900) { sidebar.classList.toggle('open'); overlay.classList.toggle('active'); btn.classList.toggle('is-open', sidebar.classList.contains('open')); }
+            else { sidebar.classList.toggle('collapsed'); wrap.classList.toggle('expanded'); btn.classList.toggle('is-open', sidebar.classList.contains('collapsed')); localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed')); }
+        }
+        function closeSidebar() { sidebar.classList.remove('open'); document.getElementById('sidebar-overlay').classList.remove('active'); btn.classList.remove('is-open'); }
+
+        function toggleNotif() {
+            const dd = document.getElementById('notifDropdown');
+            dd.classList.toggle('open');
+            if (dd.classList.contains('open')) loadNotifications();
+        }
+        function loadNotifications() {
+            fetch('/user/notifications/list').then(r => r.json()).then(data => {
+                const list = document.getElementById('notifList');
+                const badge = document.getElementById('notifBadge');
+                if (!data.length) { list.innerHTML = '<div class="notif-empty">No notifications yet.</div>'; badge.style.display = 'none'; return; }
+                const unread = data.filter(n => !n.is_read).length;
+                badge.textContent = unread; badge.style.display = unread > 0 ? 'block' : 'none';
+                list.innerHTML = data.map(n => `<div class="notif-item ${n.is_read ? '' : 'unread'}"><span class="notif-icon">${n.type === '1h' ? '🚨' : '🔔'}</span><div class="notif-msg"><div>${n.message}</div><div class="notif-time">${n.created_at}</div></div></div>`).join('');
+                if (unread > 0) fetch('/user/notifications/read', { method: 'POST' }).then(() => { badge.style.display = 'none'; });
+            });
+        }
+        fetch('/user/notifications/list').then(r => r.json()).then(data => {
+            const unread = data.filter(n => !n.is_read).length;
+            const badge = document.getElementById('notifBadge');
+            badge.textContent = unread; badge.style.display = unread > 0 ? 'block' : 'none';
+        });
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.notif-wrap');
+            if (wrap && !wrap.contains(e.target)) document.getElementById('notifDropdown').classList.remove('open');
+        });
+    </script>
+</body>
+</html>

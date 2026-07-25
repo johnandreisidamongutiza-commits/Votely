@@ -1,0 +1,90 @@
+{% extends 'superadmin_base.html' %}
+{% block title %}Admin Logs — Superadmin{% endblock %}
+{% block page_title %}Admin Logs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h2>Admin Activity Logs</h2>
+        <p>Review actions performed by admins and superadmins, with timestamps and context.</p>
+    </div>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden;">
+    <div id="logs-wrap" style="padding:0;">
+        <p style="padding:20px 24px;color:var(--text-muted);font-size:13px;">Loading...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentPage = 1;
+
+    function loadLogs(page) {
+        currentPage = page;
+        const wrap = document.getElementById('logs-wrap');
+        wrap.innerHTML = '<p style="padding:20px 24px;color:var(--text-muted);font-size:13px;">Loading...</p>';
+
+        fetch(`/superadmin/admin-logs-data?page=${page}`)
+            .then(r => r.json())
+            .then(data => {
+                if (!data.logs || !data.logs.length) {
+                    wrap.innerHTML = `
+                        <div style="text-align:center;padding:52px 24px;color:var(--text-muted);">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;opacity:0.4;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                            <p style="font-weight:600;font-size:15px;color:var(--text);">No admin logs yet</p>
+                            <p style="font-size:13px;margin-top:4px;">Admin activity will appear here once actions are performed.</p>
+                        </div>`;
+                    return;
+                }
+
+                let html = `<div class="table-wrap" style="border:none;border-radius:0;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Admin</th>
+                                <th>Action</th>
+                                <th>Election</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>`;
+
+                data.logs.forEach(log => {
+                    const badgeClass = log.action.includes('Delete') ? 'badge-ended'
+                        : (log.action.includes('Create') || log.action.includes('Register')) ? 'badge-active'
+                        : 'badge-draft';
+                    html += `<tr>
+                        <td style="font-size:13px;color:var(--text-muted);white-space:nowrap;">${log.created_at}</td>
+                        <td>
+                            <div style="display:flex;flex-direction:column;gap:2px;">
+                                <strong style="font-size:13px;">${log.firstname} ${log.lastname}</strong>
+                                <span class="id-code" style="font-size:11px;">${log.user_id}</span>
+                            </div>
+                        </td>
+                        <td><span class="badge ${badgeClass}">${log.action}</span></td>
+                        <td style="font-size:13px;color:var(--text-muted);">${log.election_id || '—'}</td>
+                        <td style="font-size:13px;color:var(--text-muted);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${log.details || ''}">${log.details || '—'}</td>
+                    </tr>`;
+                });
+
+                html += `</tbody></table></div>`;
+
+                // Pagination
+                if (data.total_pages > 1) {
+                    html += `<div class="pagination-wrap">`;
+                    for (let i = 1; i <= data.total_pages; i++) {
+                        html += `<button class="page-btn${i === data.page ? ' active' : ''}" onclick="loadLogs(${i})">${i}</button>`;
+                    }
+                    html += `</div>`;
+                }
+
+                wrap.innerHTML = html;
+            });
+    }
+
+    loadLogs(1);
+</script>
+{% endblock %}

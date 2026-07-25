@@ -1,0 +1,461 @@
+/* ── Google Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Sans:wght@400;500;600;700&display=swap');
+
+/* ══════════════════════════════════════════
+   CSS Variables
+══════════════════════════════════════════ */
+:root {
+    --dark:         #0d1117;
+    --dark-panel:   #161b22;
+    --dark-input:   #1c2230;
+    --border:       rgba(255,255,255,0.10);
+    --accent:       #2ecc87;
+    --accent-dim:   rgba(46,204,135,0.15);
+    --text:         #e6edf3;
+    --muted:        rgba(255,255,255,0.45);
+    --error-bg:     rgba(220,53,69,0.15);
+    --error-text:   #ff7b8a;
+    --error-border: rgba(220,53,69,0.40);
+    --success-bg:   rgba(46,204,135,0.12);
+    --success-text: #2ecc87;
+    --success-border: rgba(46,204,135,0.35);
+}
+
+/* ══════════════════════════════════════════
+   Reset
+══════════════════════════════════════════ */
+*, *::before, *::after {
+    margin: 0; padding: 0; box-sizing: border-box;
+}
+
+/* ══════════════════════════════════════════
+   Body — animated background slideshow
+   Replace the gradient values with real
+   campus photos via background-image URLs.
+══════════════════════════════════════════ */
+body {
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    overflow: hidden;
+    position: relative;
+    color: var(--text);
+}
+
+/* Background image layer — animated pan + fade */
+body::before {
+    content: '';
+    position: fixed;
+    inset: -6%;
+    z-index: 0;
+    background:
+        linear-gradient(145deg,
+            #071a0f 0%,
+            #0a3d28 30%,
+            #0d5c3a 60%,
+            #084a2e 100%);
+    background-size: cover;
+    background-position: center;
+    animation: bgKen 24s ease-in-out infinite alternate;
+    filter: brightness(0.50) saturate(1.2);
+}
+
+/* Ken Burns — slow pan + zoom to simulate live photo */
+@keyframes bgKen {
+    0%   { transform: scale(1.00) translate(0%,    0%);   }
+    33%  { transform: scale(1.06) translate(-1.5%, 0.5%); }
+    66%  { transform: scale(1.04) translate(1%,    -1%);  }
+    100% { transform: scale(1.08) translate(-0.5%, 1%);   }
+}
+
+/* Slideshow fade layers */
+.bg-slide {
+    position: fixed;
+    inset: -6%;
+    z-index: 0;
+    background-size: cover;
+    background-position: center;
+    animation: bgKen 24s ease-in-out infinite alternate;
+    filter: brightness(0.50) saturate(1.2);
+    opacity: 0;
+    transition: opacity 1.4s ease-in-out;
+    pointer-events: none;
+}
+
+.bg-slide.active {
+    opacity: 1;
+}
+
+/* Vignette + dark wash overlay */
+body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background:
+        radial-gradient(ellipse at 50% 40%, transparent 25%, rgba(0,0,0,0.65) 100%),
+        linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(13,17,23,0.60) 100%);
+    pointer-events: none;
+}
+
+/* ══════════════════════════════════════════
+   Login container
+══════════════════════════════════════════ */
+.login-container {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    max-width: 820px;
+    animation: cardIn 0.65s cubic-bezier(.22,1,.36,1) both;
+}
+
+@keyframes cardIn {
+    from { opacity: 0; transform: translateY(30px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+/* ══════════════════════════════════════════
+   Login box — two-column grid
+   Column 1 = decorative left panel (::before/::after)
+   Column 2 = h2 + form (real HTML elements)
+══════════════════════════════════════════ */
+.login-box {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto 1fr;
+    border-radius: 18px;
+    overflow: hidden;
+    box-shadow:
+        0 0 0 1px rgba(255,255,255,0.06),
+        0 32px 80px rgba(0,0,0,0.60),
+        0 0 100px rgba(46,204,135,0.05);
+    position: relative;
+}
+
+/* Left decorative panel — spans both rows */
+.login-box::before {
+    content: '';
+    grid-column: 1;
+    grid-row: 1 / 3;
+    background:
+        /* subtle radial light to add depth */
+        radial-gradient(ellipse at 50% 38%, rgba(255,255,255,0.08) 0%, transparent 65%),
+        /* LSPU green gradient */
+        linear-gradient(155deg, #064d32 0%, #0a7a50 45%, #0fa36b 80%, #13c983 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 360px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Watermark ring decorations on left panel */
+.login-box::after {
+    content: '';
+    grid-column: 1;      /* same column, layered via position */
+    grid-row: 1 / 3;
+    position: absolute;
+    top: 50%; left: 25%;
+    transform: translate(-50%, -50%);
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    border: 50px solid rgba(255,255,255,0.06);
+    box-shadow:
+        0 0 0 30px rgba(255,255,255,0.035),
+        0 0 0 60px rgba(255,255,255,0.018);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* ── Left panel text (injected via a hidden helper) ──
+   Since we can't edit the HTML, we use the h2's
+   ::before pseudo-element shifted to the left via
+   absolute positioning when in two-column layout.
+   The real h2 content is hidden and replaced below. */
+
+/* h2 — top of right panel */
+.login-box h2 {
+    grid-column: 2;
+    grid-row: 1;
+    background: var(--dark-panel);
+    padding: 36px 36px 0;
+    text-align: center;
+    position: relative;
+    /* Hide original text, replace via ::before */
+    color: transparent;
+    font-size: 0;
+}
+
+/* System name displayed via pseudo */
+.login-box h2::before {
+    content: '🗳️  Voting System';
+    display: block;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.2px;
+}
+
+.login-box h2::after {
+    content: 'INTEGRITY  •  EXCELLENCE  •  SERVICE';
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    color: var(--muted);
+    margin-top: 8px;
+    /* green underline accent */
+    padding-bottom: 28px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+
+/* Left panel heading — overlaid via absolute, reads from h2 content */
+/* We simulate the "SIGN IN TO YOUR ACCOUNT" text using a separate
+   absolutely-positioned element attached to the left side of the card */
+.login-box {
+    /* needed for the left-text abs positioning */
+    position: relative;
+}
+
+/* Left panel inner text block */
+.login-box h2 + form::before {
+    content: 'SIGN IN TO YOUR\A ACCOUNT';
+    white-space: pre;
+    position: absolute;
+    top: 0; left: 0;
+    width: 50%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-family: 'Cinzel', serif;
+    font-size: 18px;
+    font-weight: 900;
+    color: rgba(255,255,255,0.92);
+    letter-spacing: 1.8px;
+    line-height: 1.65;
+    pointer-events: none;
+    z-index: 2;
+    padding: 24px;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.30);
+}
+
+/* form — right panel */
+.login-box form {
+    grid-column: 2;
+    grid-row: 2;
+    background: var(--dark-panel);
+    padding: 24px 36px 36px;
+    display: flex;
+    flex-direction: column;
+}
+
+/* ══════════════════════════════════════════
+   Alert messages
+══════════════════════════════════════════ */
+.error-message,
+.success-message {
+    padding: 11px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    line-height: 1.5;
+    border: 1px solid;
+}
+
+.error-message {
+    background: var(--error-bg);
+    color: var(--error-text);
+    border-color: var(--error-border);
+}
+
+.success-message {
+    background: var(--success-bg);
+    color: var(--success-text);
+    border-color: var(--success-border);
+}
+
+/* ══════════════════════════════════════════
+   Form groups
+══════════════════════════════════════════ */
+.form-group {
+    margin-bottom: 16px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 7px;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 13px 16px;
+    background: var(--dark-input);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    caret-color: var(--accent);
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+}
+
+.form-group input::placeholder {
+    color: rgba(255,255,255,0.22);
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(46,204,135,0.15);
+    background: #1a2232;
+}
+
+/* ══════════════════════════════════════════
+   Buttons
+══════════════════════════════════════════ */
+.login-btn {
+    width: 100%;
+    padding: 14px;
+    margin-top: 10px;
+    background: var(--accent);
+    color: #061a0f;
+    border: none;
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    letter-spacing: 0.3px;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+
+.login-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.14) 0%, transparent 55%);
+    pointer-events: none;
+}
+
+.login-btn:hover {
+    background: #27c87a;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(46,204,135,0.38);
+}
+
+.login-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.regist-btn {
+    display: block;
+    width: 100%;
+    padding: 13px;
+    margin-top: 10px;
+    background: transparent;
+    color: var(--accent);
+    border: 1px solid rgba(46,204,135,0.35);
+    border-radius: 9px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.regist-btn:hover {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: #fff;
+}
+
+/* ══════════════════════════════════════════
+   Copyright footer (if you add one later)
+══════════════════════════════════════════ */
+.login-box footer,
+.login-footer {
+    grid-column: 2;
+    background: var(--dark-panel);
+    text-align: center;
+    font-size: 11px;
+    color: rgba(255,255,255,0.22);
+    padding: 12px 36px 20px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+
+/* ══════════════════════════════════════════
+   Responsive — single column on mobile
+══════════════════════════════════════════ */
+@media (max-width: 600px) {
+    body { padding: 16px; }
+
+    .login-box {
+        grid-template-columns: 1fr;
+        border-radius: 14px;
+    }
+
+    /* Hide decorative left panel */
+    .login-box::before,
+    .login-box::after,
+    .login-box h2 + form::before {
+        display: none;
+    }
+
+    .login-box h2,
+    .login-box form {
+        grid-column: 1;
+    }
+
+    .login-box h2 { padding: 28px 22px 0; }
+    .login-box form { padding: 20px 22px 28px; }
+}
+
+/*
+ * ══════════════════════════════════════════
+ * HOW TO ADD A REAL BACKGROUND SLIDESHOW
+ * ══════════════════════════════════════════
+ *
+ * 1. Add your campus photos to your static folder:
+ *    auth/static/bg1.jpg, bg2.jpg, bg3.jpg
+ *
+ * 2. Add this <script> before </body> in your HTML:
+ *
+ *    <script>
+ *      const photos = [
+ *        "{{ url_for('auth.static', filename='bg1.jpg') }}",
+ *        "{{ url_for('auth.static', filename='bg2.jpg') }}",
+ *        "{{ url_for('auth.static', filename='bg3.jpg') }}"
+ *      ];
+ *      let i = 0;
+ *      function cycleBg() {
+ *        document.body.style.setProperty('--bg-img', `url("${photos[i]}")`);
+ *        i = (i + 1) % photos.length;
+ *      }
+ *      cycleBg();
+ *      setInterval(cycleBg, 6000);
+ *    </script>
+ *
+ * 3. In this CSS, change body::before to:
+ *    background-image: var(--bg-img);
+ *    transition: background-image 1s ease;
+ *
+ */

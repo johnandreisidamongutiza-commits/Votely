@@ -1,0 +1,633 @@
+{% extends 'superadmin_base.html' %}
+{% block title %}Manage Admins — Superadmin{% endblock %}
+{% block page_title %}Manage Admins{% endblock %}
+
+{% block head %}
+<style>
+    .pw-req {
+        font-size: 11px; font-weight: 600;
+        padding: 3px 9px; border-radius: 20px;
+        background: rgba(239,68,68,0.1); color: #dc2626;
+        border: 1px solid rgba(239,68,68,0.2);
+        transition: opacity 0.2s, transform 0.2s;
+    }
+    .pw-req.met {
+        opacity: 0; transform: scale(0.7);
+        pointer-events: none; position: absolute;
+    }
+    .tab-bar {
+        display: flex; gap: 4px;
+        padding: 14px 20px 0;
+        border-bottom: 1px solid var(--border);
+        background: var(--card);
+        border-radius: var(--radius) var(--radius) 0 0;
+    }
+    .tab-btn {
+        padding: 8px 18px; font-size: 13px; font-weight: 600;
+        border: none; background: none; color: var(--text-muted);
+        cursor: pointer; border-bottom: 2px solid transparent;
+        margin-bottom: -1px; transition: color 0.15s, border-color 0.15s;
+        display: flex; align-items: center; gap: 7px; font-family: inherit;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-count {
+        background: var(--accent-dim); color: var(--accent);
+        font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 100px;
+    }
+    .tab-btn.active .tab-count { background: var(--accent); color: #fff; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .btn-archive {
+        padding: 5px 12px; font-size: 12px; font-weight: 600;
+        border-radius: 8px; border: none; cursor: pointer;
+        background: rgba(245,158,11,0.12); color: #d97706;
+        transition: background 0.15s; font-family: inherit;
+    }
+    .btn-archive:hover { background: rgba(245,158,11,0.22); }
+    .btn-restore {
+        padding: 5px 12px; font-size: 12px; font-weight: 600;
+        border-radius: 8px; border: none; cursor: pointer;
+        background: rgba(34,197,94,0.12); color: #16a34a;
+        transition: background 0.15s; font-family: inherit;
+    }
+    .btn-restore:hover { background: rgba(34,197,94,0.22); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h2>Administrator Accounts</h2>
+        <p>Create, edit, and manage admin accounts.</p>
+    </div>
+    <div class="page-header-right">
+        <button class="btn-primary" onclick="openCreateModal()">+ Create Admin</button>
+    </div>
+</div>
+
+<div class="card superadmin-card" style="padding:0;overflow:hidden;">
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('admins', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Admins <span class="tab-count">{{ admins|length }}</span>
+        </button>
+        <button class="tab-btn" onclick="switchTab('archived', this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            Archived <span class="tab-count">{{ archived_admins|length }}</span>
+        </button>
+    </div>
+
+    <!-- Admins Tab -->
+    <div id="tab-admins" class="tab-panel active">
+        {% if admins %}
+        <div class="table-wrap" style="border:none;border-radius:0;">
+            <table>
+                <thead><tr>
+                    <th>Admin ID</th><th>Name</th><th>Email</th><th>Status</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for admin in admins %}
+                    <tr>
+                        <td><span class="id-code">{{ admin.user_id }}</span></td>
+                        <td><strong>{{ admin.firstname }} {{ admin.lastname }}</strong></td>
+                        <td style="color:var(--text-muted);">{{ admin.email }}</td>
+                        <td>
+                            {% if admin.status == 'active' %}
+                            <span class="badge badge-active">Active</span>
+                            {% else %}
+                            <span class="badge badge-draft">{{ admin.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align:center;">
+                            <button class="btn-edit"
+                                data-id="{{ admin.id }}" data-firstname="{{ admin.firstname }}"
+                                data-lastname="{{ admin.lastname }}" data-email="{{ admin.email }}"
+                                onclick="openEditModal(this)">Edit</button>
+                            <button class="btn-archive"
+                                data-id="{{ admin.id }}"
+                                data-name="{{ admin.firstname }} {{ admin.lastname }}"
+                                onclick="openArchiveModal(this)">Archive</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:52px 24px;color:var(--text-muted);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;opacity:0.4;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            <p style="font-weight:600;font-size:15px;color:var(--text);">No admin accounts yet</p>
+            <p style="font-size:13px;margin-top:4px;">Click "Create Admin" to add the first administrator.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Archived Tab -->
+    <div id="tab-archived" class="tab-panel">
+        {% if archived_admins %}
+        <div class="table-wrap" style="border:none;border-radius:0;">
+            <table>
+                <thead><tr>
+                    <th>Admin ID</th><th>Name</th><th>Email</th><th>Status</th>
+                    <th style="text-align:center;">Actions</th>
+                </tr></thead>
+                <tbody>
+                    {% for admin in archived_admins %}
+                    <tr>
+                        <td><span class="id-code">{{ admin.user_id }}</span></td>
+                        <td><strong>{{ admin.firstname }} {{ admin.lastname }}</strong></td>
+                        <td style="color:var(--text-muted);">{{ admin.email }}</td>
+                        <td><span class="badge badge-draft">Archived</span></td>
+                        <td style="text-align:center;">
+                            <button class="btn-restore"
+                                data-id="{{ admin.id }}"
+                                data-name="{{ admin.firstname }} {{ admin.lastname }}"
+                                onclick="openRestoreModal(this)">Restore</button>
+                            <button class="btn-delete"
+                                data-id="{{ admin.id }}"
+                                data-name="{{ admin.firstname }} {{ admin.lastname }}"
+                                onclick="openDeleteModal(this)">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div style="text-align:center;padding:52px 24px;color:var(--text-muted);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;opacity:0.4;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            <p style="font-weight:600;font-size:15px;color:var(--text);">No archived admins</p>
+            <p style="font-size:13px;margin-top:4px;">Archived admin accounts will appear here.</p>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+
+<!-- ── ARCHIVE MODAL ── -->
+<div class="modal-overlay" id="archiveModal" style="display:none;">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+            <div><h3>Archive Admin Account</h3><p>The admin will be deactivated but can be restored later.</p></div>
+            <button class="modal-close" onclick="closeArchiveModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div style="padding:20px 28px 28px;">
+            <div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#92400e;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                You are about to archive <strong id="archive-admin-name"></strong>. They will no longer be able to log in until restored.
+            </div>
+            <div id="archive-alert" class="modal-alert" style="display:none;"></div>
+            <div class="modal-actions" style="border-top:none;margin-top:0;padding-top:0;">
+                <button class="btn-secondary" onclick="closeArchiveModal()">Cancel</button>
+                <button class="btn-archive" id="archiveConfirmBtn" onclick="executeArchive()" style="padding:9px 18px;font-size:13px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                    Archive Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── RESTORE MODAL ── -->
+<div class="modal-overlay" id="restoreModal" style="display:none;">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+            <div><h3>Restore Admin Account</h3><p>The admin will be reactivated and can log in again.</p></div>
+            <button class="modal-close" onclick="closeRestoreModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div style="padding:20px 28px 28px;">
+            <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:10px;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#166534;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+                Restore <strong id="restore-admin-name"></strong>? They will be able to log in again.
+            </div>
+            <div id="restore-alert" class="modal-alert" style="display:none;"></div>
+            <div class="modal-actions" style="border-top:none;margin-top:0;padding-top:0;">
+                <button class="btn-secondary" onclick="closeRestoreModal()">Cancel</button>
+                <button class="btn-restore" id="restoreConfirmBtn" onclick="executeRestore()" style="padding:9px 18px;font-size:13px;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+                    Restore Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── CREATE MODAL ── -->
+<div class="modal-overlay" id="createModal" style="display:none;">
+    <div class="modal">
+        <div class="modal-header">
+            <div><h3>Create Admin Account</h3><p>Fill in the details for the new administrator.</p></div>
+            <button class="modal-close" onclick="closeCreateModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div id="create-alert" class="modal-alert" style="display:none;"></div>
+        <form id="createForm">
+            <div class="form-group">
+                <label>Admin ID <span class="label-required">*</span></label>
+                <input type="text" id="c-user_id" name="user_id" required placeholder="e.g. ADM-0002" autocomplete="off">
+                <span id="cerr-user_id" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>First Name <span class="label-required">*</span></label>
+                    <input type="text" id="c-firstname" name="firstname" required placeholder="First name" autocomplete="off">
+                    <span id="cerr-firstname" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                </div>
+                <div class="form-group">
+                    <label>Last Name <span class="label-required">*</span></label>
+                    <input type="text" id="c-lastname" name="lastname" required placeholder="Last name" autocomplete="off">
+                    <span id="cerr-lastname" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Email <span class="label-required">*</span></label>
+                <input type="email" id="c-email" name="email" required placeholder="admin@example.com" autocomplete="off">
+                <span id="cerr-email" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+            </div>
+            <div class="form-group">
+                <label>Password <span class="label-required">*</span></label>
+                <div style="position:relative;">
+                    <input type="password" id="c-password" name="password" required placeholder="Min. 8 chars, upper, lower, number, symbol" autocomplete="new-password" style="padding-right:42px;">
+                    <button type="button" class="password-toggle" onclick="togglePasswordField('c-password', this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px 8px;display:flex;align-items:center;justify-content:center;transition:color 0.2s;">
+                        <svg class="eye-on" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="eye-off" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                </div>
+                <div id="c-pw-reqs" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                    <span class="pw-req" id="c-req-len">8+ characters</span>
+                    <span class="pw-req" id="c-req-upper">Uppercase</span>
+                    <span class="pw-req" id="c-req-lower">Lowercase</span>
+                    <span class="pw-req" id="c-req-num">Number</span>
+                    <span class="pw-req" id="c-req-special">Special character</span>
+                </div>
+                <span id="cerr-password" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="createSubmitBtn">Create Admin</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── EDIT MODAL ── -->
+<div class="modal-overlay" id="editModal" style="display:none;">
+    <div class="modal">
+        <div class="modal-header">
+            <div><h3>Edit Admin Account</h3><p>Update the administrator's details.</p></div>
+            <button class="modal-close" onclick="closeEditModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div id="edit-alert" class="modal-alert" style="display:none;"></div>
+        <form id="editForm">
+            <input type="hidden" id="e-id">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>First Name <span class="label-required">*</span></label>
+                    <input type="text" id="e-firstname" name="firstname" required autocomplete="off">
+                    <span id="eerr-firstname" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                </div>
+                <div class="form-group">
+                    <label>Last Name <span class="label-required">*</span></label>
+                    <input type="text" id="e-lastname" name="lastname" required autocomplete="off">
+                    <span id="eerr-lastname" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Email <span class="label-required">*</span></label>
+                <input type="email" id="e-email" name="email" required autocomplete="off">
+                <span id="eerr-email" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+            </div>
+            <div class="form-group">
+                <label>New Password <span style="font-weight:400;font-size:12px;color:var(--text-muted);">— leave blank to keep current</span></label>
+                <div style="position:relative;">
+                    <input type="password" id="e-password" name="password" placeholder="Min. 8 chars, upper, lower, number, symbol" autocomplete="new-password" style="padding-right:42px;">
+                    <button type="button" class="password-toggle" onclick="togglePasswordField('e-password', this)" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px 8px;display:flex;align-items:center;justify-content:center;transition:color 0.2s;">
+                        <svg class="eye-on" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <svg class="eye-off" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                    </button>
+                </div>
+                <div id="e-pw-reqs" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                    <span class="pw-req" id="e-req-len">8+ characters</span>
+                    <span class="pw-req" id="e-req-upper">Uppercase</span>
+                    <span class="pw-req" id="e-req-lower">Lowercase</span>
+                    <span class="pw-req" id="e-req-num">Number</span>
+                    <span class="pw-req" id="e-req-special">Special character</span>
+                </div>
+                <span id="eerr-password" style="font-size:11.5px;color:#dc2626;font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button type="submit" class="btn-primary" id="editSubmitBtn">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ── DELETE MODAL ── -->
+<div class="modal-overlay" id="deleteModal" style="display:none;">
+    <div class="modal" style="max-width:480px;">
+        <div class="modal-header">
+            <div><h3>Delete Admin Account</h3><p>This action cannot be undone.</p></div>
+            <button class="modal-close" onclick="closeDeleteModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        </div>
+        <div style="padding:20px 28px 28px;">
+            <div class="alert-error" style="margin-bottom:20px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                You are about to permanently delete the account of <strong id="delete-admin-name"></strong>.
+            </div>
+            <div id="delete-alert" class="modal-alert" style="display:none;"></div>
+            <div class="modal-actions" style="border-top:none;margin-top:0;padding-top:0;">
+                <button class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn-delete" id="deleteConfirmBtn" onclick="executeDelete()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                    Delete Account
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let pendingDeleteId  = null;
+    let pendingArchiveId = null;
+
+    // ── Tab switching ──
+    function switchTab(name, btn) {
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    // ── Shared validation helpers ──
+    const USER_ID_RE = /^ADM-\d{4}$/;
+    const NAME_RE  = /^[A-Za-z\s'\-]{3,30}$/;
+    const EMAIL_RE = /^(?!.*\.\.)(?!.*\.$)[^\W][a-zA-Z0-9._%+\-]{0,63}@[a-zA-Z0-9\-]+(\.[a-zA-Z0-9\-]+)*\.[a-zA-Z]{2,}$/;
+    const PW_RE    = /^(?=.*[A-Z])(?=.*[a-z])(?=.*[0-9])(?=.*[^A-Za-z0-9]).{8,}$/;
+
+    // ── Toggle password visibility ──
+    function togglePasswordField(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const eyeOn = btn.querySelector('.eye-on');
+        const eyeOff = btn.querySelector('.eye-off');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            eyeOn.style.display = 'none';
+            eyeOff.style.display = 'block';
+        } else {
+            input.type = 'password';
+            eyeOn.style.display = 'block';
+            eyeOff.style.display = 'none';
+        }
+    }
+
+    function setFieldError(inputId, errId, msg) {
+        const el  = document.getElementById(inputId);
+        const err = document.getElementById(errId);
+        if (msg) { el.style.borderColor = '#ef4444'; if (err) err.textContent = msg; }
+        else      { el.style.borderColor = ''; if (err) err.textContent = ''; }
+    }
+    function validateAdminId(val, inputId, errId) {
+        val = val.trim().toUpperCase();
+        if (!val)                  { setFieldError(inputId, errId, 'Admin ID is required.'); return false; }
+        if (!USER_ID_RE.test(val)) { setFieldError(inputId, errId, 'Format must be ADM-XXXX (e.g. ADM-0001).'); return false; }
+        setFieldError(inputId, errId, ''); return true;
+    }
+    function validateName(val, inputId, errId) {
+        val = val.replace(/\s+/g, ' ').trim();
+        if (!val)               { setFieldError(inputId, errId, 'This field is required.'); return false; }
+        if (val.length < 3)     { setFieldError(inputId, errId, 'Must be at least 3 characters.'); return false; }
+        if (val.length > 30)    { setFieldError(inputId, errId, 'Must not exceed 30 characters.'); return false; }
+        if (!NAME_RE.test(val)) { setFieldError(inputId, errId, 'Letters, spaces, hyphens, apostrophes only.'); return false; }
+        setFieldError(inputId, errId, ''); return true;
+    }
+    function validateEmail(val, inputId, errId) {
+        val = val.trim().toLowerCase();
+        if (!val)                { setFieldError(inputId, errId, 'Email is required.'); return false; }
+        if (!EMAIL_RE.test(val)) { setFieldError(inputId, errId, 'Enter a valid email address.'); return false; }
+        setFieldError(inputId, errId, ''); return true;
+    }
+    function validatePassword(val, inputId, errId, required) {
+        if (!val && !required) { setFieldError(inputId, errId, ''); return true; }
+        if (!val && required)  { setFieldError(inputId, errId, 'Password is required.'); return false; }
+        if (!PW_RE.test(val))  { setFieldError(inputId, errId, ''); return false; }
+        setFieldError(inputId, errId, ''); return true;
+    }
+    function updatePwReqs(pw, prefix) {
+        const toggle = (id, met) => { const el = document.getElementById(id); if (el) el.classList.toggle('met', met); };
+        toggle(`${prefix}-req-len`,     pw.length >= 8);
+        toggle(`${prefix}-req-upper`,   /[A-Z]/.test(pw));
+        toggle(`${prefix}-req-lower`,   /[a-z]/.test(pw));
+        toggle(`${prefix}-req-num`,     /[0-9]/.test(pw));
+        toggle(`${prefix}-req-special`, /[^A-Za-z0-9]/.test(pw));
+        const container = document.getElementById(`${prefix}-pw-reqs`);
+        if (container) container.style.display = pw ? 'flex' : 'none';
+    }
+
+    // ── CREATE MODAL ──
+    function openCreateModal() {
+        document.getElementById('createModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        document.getElementById('c-user_id').focus();
+    }
+    function closeCreateModal() {
+        document.getElementById('createModal').style.display = 'none';
+        document.body.style.overflow = '';
+        document.getElementById('createForm').reset();
+        document.getElementById('create-alert').style.display = 'none';
+        ['c-user_id','c-firstname','c-lastname','c-email','c-password'].forEach(id => { const el = document.getElementById(id); if (el) el.style.borderColor = ''; });
+        ['cerr-user_id','cerr-firstname','cerr-lastname','cerr-email','cerr-password'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = ''; });
+        updatePwReqs('', 'c');
+    }
+
+    document.getElementById('c-user_id').addEventListener('input',   function() { this.value = this.value.toUpperCase(); validateAdminId(this.value, 'c-user_id', 'cerr-user_id'); });
+    document.getElementById('c-user_id').addEventListener('blur',    function() { this.value = this.value.trim().toUpperCase(); validateAdminId(this.value, 'c-user_id', 'cerr-user_id'); });
+    document.getElementById('c-firstname').addEventListener('input', function() { validateName(this.value, 'c-firstname', 'cerr-firstname'); });
+    document.getElementById('c-firstname').addEventListener('blur',  function() { this.value = this.value.replace(/\s+/g, ' ').trim(); validateName(this.value, 'c-firstname', 'cerr-firstname'); });
+    document.getElementById('c-lastname').addEventListener('input',  function() { validateName(this.value, 'c-lastname', 'cerr-lastname'); });
+    document.getElementById('c-lastname').addEventListener('blur',   function() { this.value = this.value.replace(/\s+/g, ' ').trim(); validateName(this.value, 'c-lastname', 'cerr-lastname'); });
+    document.getElementById('c-email').addEventListener('input',     function() { validateEmail(this.value, 'c-email', 'cerr-email'); });
+    document.getElementById('c-email').addEventListener('blur',      function() { this.value = this.value.trim().toLowerCase(); validateEmail(this.value, 'c-email', 'cerr-email'); });
+    document.getElementById('c-password').addEventListener('input',  function() { validatePassword(this.value, 'c-password', 'cerr-password', true); updatePwReqs(this.value, 'c'); });
+
+    document.getElementById('createForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const uidEl = document.getElementById('c-user_id');
+        const fnEl  = document.getElementById('c-firstname');
+        const lnEl  = document.getElementById('c-lastname');
+        const emEl  = document.getElementById('c-email');
+        uidEl.value = uidEl.value.trim().toUpperCase();
+        fnEl.value  = fnEl.value.replace(/\s+/g, ' ').trim();
+        lnEl.value  = lnEl.value.replace(/\s+/g, ' ').trim();
+        emEl.value  = emEl.value.trim().toLowerCase();
+        const uid = validateAdminId(uidEl.value, 'c-user_id', 'cerr-user_id');
+        const fn  = validateName(fnEl.value, 'c-firstname', 'cerr-firstname');
+        const ln  = validateName(lnEl.value, 'c-lastname',  'cerr-lastname');
+        const em  = validateEmail(emEl.value, 'c-email', 'cerr-email');
+        const pw  = validatePassword(document.getElementById('c-password').value, 'c-password', 'cerr-password', true);
+        if (!uid || !fn || !ln || !em || !pw) return;
+        const btn = document.getElementById('createSubmitBtn');
+        btn.disabled = true; btn.textContent = 'Creating...';
+        const alertEl = document.getElementById('create-alert');
+        alertEl.style.display = 'none';
+        const res  = await fetch('{{ url_for("superadmin.create_admin") }}', { method: 'POST', body: new FormData(this) });
+        const json = await res.json();
+        btn.disabled = false; btn.textContent = 'Create Admin';
+        if (json.success) { closeCreateModal(); location.reload(); }
+        else { alertEl.textContent = json.error; alertEl.className = 'modal-alert modal-alert-error'; alertEl.style.display = 'block'; }
+    });
+
+    // ── EDIT MODAL ──
+    function openEditModal(btn) {
+        document.getElementById('e-id').value        = btn.dataset.id;
+        document.getElementById('e-firstname').value = btn.dataset.firstname;
+        document.getElementById('e-lastname').value  = btn.dataset.lastname;
+        document.getElementById('e-email').value     = btn.dataset.email;
+        document.getElementById('e-password').value  = '';
+        document.getElementById('edit-alert').style.display = 'none';
+        ['e-firstname','e-lastname','e-email','e-password'].forEach(id => { const el = document.getElementById(id); if (el) el.style.borderColor = ''; });
+        ['eerr-firstname','eerr-lastname','eerr-email','eerr-password'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = ''; });
+        updatePwReqs('', 'e');
+        document.getElementById('editModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+        document.body.style.overflow = '';
+        document.getElementById('editForm').reset();
+        document.getElementById('edit-alert').style.display = 'none';
+    }
+
+    document.getElementById('e-firstname').addEventListener('input', function() { validateName(this.value, 'e-firstname', 'eerr-firstname'); });
+    document.getElementById('e-firstname').addEventListener('blur',  function() { this.value = this.value.replace(/\s+/g, ' ').trim(); validateName(this.value, 'e-firstname', 'eerr-firstname'); });
+    document.getElementById('e-lastname').addEventListener('input',  function() { validateName(this.value, 'e-lastname', 'eerr-lastname'); });
+    document.getElementById('e-lastname').addEventListener('blur',   function() { this.value = this.value.replace(/\s+/g, ' ').trim(); validateName(this.value, 'e-lastname', 'eerr-lastname'); });
+    document.getElementById('e-email').addEventListener('input',     function() { validateEmail(this.value, 'e-email', 'eerr-email'); });
+    document.getElementById('e-email').addEventListener('blur',      function() { this.value = this.value.trim().toLowerCase(); validateEmail(this.value, 'e-email', 'eerr-email'); });
+    document.getElementById('e-password').addEventListener('input',  function() { validatePassword(this.value, 'e-password', 'eerr-password', false); updatePwReqs(this.value, 'e'); });
+
+    document.getElementById('editForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const fnEl = document.getElementById('e-firstname');
+        const lnEl = document.getElementById('e-lastname');
+        const emEl = document.getElementById('e-email');
+        fnEl.value = fnEl.value.replace(/\s+/g, ' ').trim();
+        lnEl.value = lnEl.value.replace(/\s+/g, ' ').trim();
+        emEl.value = emEl.value.trim().toLowerCase();
+        const fn = validateName(fnEl.value, 'e-firstname', 'eerr-firstname');
+        const ln = validateName(lnEl.value, 'e-lastname',  'eerr-lastname');
+        const em = validateEmail(emEl.value, 'e-email', 'eerr-email');
+        const pw = validatePassword(document.getElementById('e-password').value, 'e-password', 'eerr-password', false);
+        if (!fn || !ln || !em || !pw) return;
+        const btn = document.getElementById('editSubmitBtn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        const alertEl = document.getElementById('edit-alert');
+        alertEl.style.display = 'none';
+        const id   = document.getElementById('e-id').value;
+        const res  = await fetch(`/superadmin/edit-admin/${id}`, { method: 'POST', body: new FormData(this) });
+        const json = await res.json();
+        btn.disabled = false; btn.textContent = 'Save Changes';
+        if (json.success) { closeEditModal(); location.reload(); }
+        else { alertEl.textContent = json.error; alertEl.className = 'modal-alert modal-alert-error'; alertEl.style.display = 'block'; }
+    });
+
+    // ── ARCHIVE MODAL ──
+    function openArchiveModal(btn) {
+        pendingArchiveId = btn.dataset.id;
+        document.getElementById('archive-admin-name').textContent = btn.dataset.name;
+        document.getElementById('archive-alert').style.display = 'none';
+        document.getElementById('archiveModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeArchiveModal() {
+        document.getElementById('archiveModal').style.display = 'none';
+        document.body.style.overflow = '';
+        pendingArchiveId = null;
+    }
+    async function executeArchive() {
+        const btn = document.getElementById('archiveConfirmBtn');
+        btn.disabled = true; btn.textContent = 'Archiving...';
+        const alertEl = document.getElementById('archive-alert');
+        const res  = await fetch(`/superadmin/archive-admin/${pendingArchiveId}`, { method: 'POST' });
+        const json = await res.json();
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>Archive Account`;
+        if (json.success) { closeArchiveModal(); location.reload(); }
+        else { alertEl.textContent = json.error; alertEl.className = 'modal-alert modal-alert-error'; alertEl.style.display = 'block'; }
+    }
+
+    // ── RESTORE MODAL ──
+    let pendingRestoreId = null;
+    function openRestoreModal(btn) {
+        pendingRestoreId = btn.dataset.id;
+        document.getElementById('restore-admin-name').textContent = btn.dataset.name;
+        document.getElementById('restore-alert').style.display = 'none';
+        document.getElementById('restoreModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeRestoreModal() {
+        document.getElementById('restoreModal').style.display = 'none';
+        document.body.style.overflow = '';
+        pendingRestoreId = null;
+    }
+    async function executeRestore() {
+        const btn = document.getElementById('restoreConfirmBtn');
+        btn.disabled = true; btn.textContent = 'Restoring...';
+        const alertEl = document.getElementById('restore-alert');
+        const res  = await fetch(`/superadmin/restore-admin/${pendingRestoreId}`, { method: 'POST' });
+        const json = await res.json();
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>Restore Account`;
+        if (json.success) { closeRestoreModal(); location.reload(); }
+        else { alertEl.textContent = json.error; alertEl.className = 'modal-alert modal-alert-error'; alertEl.style.display = 'block'; }
+    }
+
+    // ── DELETE MODAL ──
+    function openDeleteModal(btn) {
+        pendingDeleteId = btn.dataset.id;
+        document.getElementById('delete-admin-name').textContent = btn.dataset.name;
+        document.getElementById('delete-alert').style.display = 'none';
+        document.getElementById('deleteModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeDeleteModal() {
+        document.getElementById('deleteModal').style.display = 'none';
+        document.body.style.overflow = '';
+        pendingDeleteId = null;
+    }
+    async function executeDelete() {
+        const btn = document.getElementById('deleteConfirmBtn');
+        btn.disabled = true; btn.textContent = 'Deleting...';
+        const alertEl = document.getElementById('delete-alert');
+        const res  = await fetch(`/superadmin/delete-admin/${pendingDeleteId}`, { method: 'POST' });
+        const json = await res.json();
+        btn.disabled = false;
+        btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>Delete Account`;
+        if (json.success) { closeDeleteModal(); location.reload(); }
+        else { alertEl.textContent = json.error; alertEl.className = 'modal-alert modal-alert-error'; alertEl.style.display = 'block'; }
+    }
+
+    // Close on overlay click + Escape
+    ['createModal','editModal','archiveModal','restoreModal','deleteModal'].forEach(id => {
+        document.getElementById(id).addEventListener('click', function(e) {
+            if (e.target === this) {
+                if (id === 'createModal') closeCreateModal();
+                else if (id === 'editModal') closeEditModal();
+                else if (id === 'archiveModal') closeArchiveModal();
+                else if (id === 'restoreModal') closeRestoreModal();
+                else closeDeleteModal();
+            }
+        });
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { closeCreateModal(); closeEditModal(); closeArchiveModal(); closeRestoreModal(); closeDeleteModal(); }
+    });
+</script>
+
+{% endblock %}

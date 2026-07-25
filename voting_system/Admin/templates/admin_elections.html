@@ -1,0 +1,706 @@
+{% extends 'base.html' %}
+{% block title %}Elections{% endblock %}
+{% block page_title %}Elections{% endblock %}
+
+{% block head %}
+<style>
+    #ongoing-tbody td, #history-tbody td, #archived-tbody td { font-size: 15px; padding: 18px 20px; }
+    #ongoing-tbody th, #history-tbody th, #archived-tbody th,
+    .elections-table thead th { font-size: 12px; padding: 14px 18px; }
+    .sub-tab-icon svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    html.dark .btn-end-active { background: rgba(220,38,38,0.2) !important; color: #f87171 !important; border-color: rgba(220,38,38,0.35) !important; }
+    #archive-confirm-btn:hover { background: #fecaca; }
+</style>
+{% endblock %}
+
+{% block content %}
+    {% if request.args.get('error') %}
+    <div class="alert-error">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        {{ request.args.get('error') }}
+    </div>
+    {% endif %}
+
+    <div class="page-header">
+        <div class="page-header-left">
+            <h2>Elections</h2>
+            <p>Manage and monitor all elections</p>
+        </div>
+    </div>
+
+    <div class="sub-tabs">
+        <button class="sub-tab active" onclick="switchTab('ongoing')">
+            <span class="sub-tab-icon">
+                <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+            </span>
+            <span>Ongoing Elections</span>
+            <span class="sub-tab-count">{{ ongoing_elections|length }}</span>
+        </button>
+        <button class="sub-tab" onclick="switchTab('history')">
+            <span class="sub-tab-icon">
+                <svg viewBox="0 0 24 24"><path d="M4 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4Z"/><path d="M8 6h8M8 10h8M8 14h8"/></svg>
+            </span>
+            <span>Election History</span>
+            <span class="sub-tab-count">{{ history_elections|length }}</span>
+        </button>
+        <button class="sub-tab" onclick="switchTab('archived')">
+            <span class="sub-tab-icon">
+                <svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="4"/><rect x="3" y="8" width="18" height="11" rx="2"/><path d="M3 19h18"/></svg>
+            </span>
+            <span>Archived</span>
+            <span class="sub-tab-count">{{ archived_elections|length }}</span>
+        </button>
+    </div>
+
+    <!-- Ongoing Elections Tab -->
+    <div id="ongoing-tab" class="tab-content active">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h3>Ongoing Elections</h3>
+                    <p class="card-desc">Manage draft and active elections.</p>
+                </div>
+                <button class="btn-primary" onclick="openModal()">+ Create Election</button>
+            </div>
+            {% if ongoing_elections %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align:center;">Title</th>
+                            <th style="text-align:center;">Start Date</th>
+                            <th style="text-align:center;">End Date</th>
+                            <th style="text-align:center;">Status</th>
+                            <th style="text-align:center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ongoing-tbody">
+                        {% for election in ongoing_elections %}
+                        <tr class="ongoing-row">
+                            <td style="text-align:center;"><strong>{{ election.title }}</strong></td>
+                            <td style="text-align:center;"><div style="font-size:14px;font-weight:600;">{{ election.start_date.strftime('%b %d, %Y') if election.start_date else 'Not set' }}</div><div style="font-size:12px;color:var(--text-muted);">{{ election.start_date.strftime('%I:%M %p') if election.start_date else '' }}</div></td>
+                            <td style="text-align:center;"><div style="font-size:14px;font-weight:600;">{{ election.end_date.strftime('%b %d, %Y') if election.end_date else 'Not set' }}</div><div style="font-size:12px;color:var(--text-muted);">{{ election.end_date.strftime('%I:%M %p') if election.end_date else '' }}</div></td>
+                            <td style="text-align:center;">
+                                {% if election.status == 'draft' %}<span class="badge badge-draft" style="font-size:13px;padding:7px 16px;">Draft</span>
+                                {% elif election.status == 'active' %}<span class="badge badge-active" style="font-size:13px;padding:7px 16px;">Active</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align:center;">
+                                <button class="btn-edit" style="font-size:14px;padding:8px 16px;" data-id="{{ election.id }}"
+                                    data-title="{{ election.title | e }}"
+                                    data-desc="{{ (election.description or '') | e }}"
+                                    data-start="{{ election.start_date.strftime('%Y-%m-%dT%H:%M') if election.start_date else '' }}"
+                                    data-end="{{ election.end_date.strftime('%Y-%m-%dT%H:%M') if election.end_date else '' }}"
+                                    data-status="{{ election.status }}" onclick="openEditModal(this)">Edit</button>
+                                {% if election.status == 'active' %}
+                                <button class="btn-edit btn-end-active" style="font-size:14px;padding:8px 16px;background:#fee2e2;color:#991b1b;border-color:#fecaca;" data-id="{{ election.id }}" data-title="{{ election.title | e }}" onclick="showEndConfirm(this)">End Election</button>
+                                {% else %}
+                                <button class="btn-approve" style="font-size:14px;padding:8px 16px;" data-id="{{ election.id }}" data-title="{{ election.title | e }}" onclick="showStartConfirm(this)">Start Election</button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="ongoing-pagination" class="pagination-wrap"></div>
+            {% else %}
+            <p class="empty-msg">No ongoing elections. <a href="#" onclick="openModal(); return false;">Create your first election →</a></p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Election History Tab -->
+    <div id="history-tab" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h3>Election History</h3>
+                    <p class="card-desc">View completed elections and their results.</p>
+                </div>
+            </div>
+            {% if history_elections %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">Title</th>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">Start Date</th>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">End Date</th>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">Status</th>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-tbody">
+                        {% for election in history_elections %}
+                        <tr class="history-row">
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;"><strong>{{ election.title }}</strong></td>
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;"><div style="font-size:14px;font-weight:600;">{{ election.start_date.strftime('%b %d, %Y') if election.start_date else 'Not set' }}</div><div style="font-size:12px;color:var(--text-muted);">{{ election.start_date.strftime('%I:%M %p') if election.start_date else '' }}</div></td>
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;"><div style="font-size:14px;font-weight:600;">{{ election.end_date.strftime('%b %d, %Y') if election.end_date else 'Not set' }}</div><div style="font-size:12px;color:var(--text-muted);">{{ election.end_date.strftime('%I:%M %p') if election.end_date else '' }}</div></td>
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;"><span class="badge badge-ended" style="font-size:13px;padding:7px 16px;">Ended</span></td>
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;">
+                                <a href="{{ url_for('admin.results_page') }}?election={{ election.id }}" class="btn-view" style="font-size:14px;padding:8px 16px;">View Results</a>
+                                <button class="btn-delete" style="font-size:14px;padding:8px 16px;" data-id="{{ election.id }}" data-title="{{ election.title | e }}" data-url="/admin/archive-election/{{ election.id }}" onclick="doArchive(this)">Archive</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="history-pagination" class="pagination-wrap"></div>
+            {% else %}
+            <p class="empty-msg">No completed elections yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Archived Tab -->
+    <div id="archived-tab" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h3>Archived Elections</h3>
+                    <p class="card-desc">Elections that have been archived.</p>
+                </div>
+            </div>
+            {% if archived_elections %}
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">Title</th>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">Start Date</th>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">End Date</th>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">Status</th>
+                            <th style="text-align:center;font-size:13px;padding:15px 20px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="archived-tbody">
+                        {% for election in archived_elections %}
+                        <tr class="archived-row">
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;"><strong>{{ election.title }}</strong></td>
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;"><div style="font-size:14px;font-weight:600;">{{ election.start_date.strftime('%b %d, %Y') if election.start_date else 'Not set' }}</div><div style="font-size:12px;color:var(--text-muted);">{{ election.start_date.strftime('%I:%M %p') if election.start_date else '' }}</div></td>
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;"><div style="font-size:14px;font-weight:600;">{{ election.end_date.strftime('%b %d, %Y') if election.end_date else 'Not set' }}</div><div style="font-size:12px;color:var(--text-muted);">{{ election.end_date.strftime('%I:%M %p') if election.end_date else '' }}</div></td>
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;"><span class="badge badge-archived" style="font-size:13px;padding:7px 16px;">Archived</span></td>
+                            <td style="text-align:center;font-size:15px;padding:18px 20px;">
+                                <button class="btn-approve" style="font-size:14px;padding:8px 16px;" data-id="{{ election.id }}" data-title="{{ election.title | e }}" data-url="/admin/restore-election/{{ election.id }}" onclick="doRestore(this)">Restore</button>
+                                <button class="btn-delete" style="font-size:14px;padding:8px 16px;" data-id="{{ election.id }}" data-title="{{ election.title | e }}" data-url="/admin/delete-election/{{ election.id }}" onclick="doDelete(this)">Delete</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div id="archived-pagination" class="pagination-wrap"></div>
+            {% else %}
+            <p class="empty-msg">No archived elections yet.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block modals %}
+    <!-- EDIT ELECTION MODAL -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Edit Election</h3><p>Update the details of this election.</p></div>
+                <button class="modal-close" onclick="closeEditModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="edit-modal-alert" class="modal-alert" style="display:none;"></div>
+            <div id="edit-modal-warning" class="modal-warning" style="display:none;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> This election is <strong id="edit-status-label"></strong>. Start and end dates cannot be modified.</div>
+            <form id="editElectionForm">
+                <input type="hidden" id="e-id">
+                <div class="modal-section-label">Basic Information</div>
+                <div class="form-group">
+                    <label for="e-title">Election Title <span class="label-required">*</span></label>
+                    <input type="text" id="e-title" name="title" required placeholder="Election title" maxlength="150">
+                    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                        <span id="e-title-err" style="font-size:11px;color:#ef4444;display:none;"></span>
+                        <span id="e-title-count" style="font-size:11px;color:var(--text-muted);margin-left:auto;">0/150</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="e-desc">Description <span style="font-weight:400;font-size:12px;color:var(--text-muted);">— optional</span></label>
+                    <textarea id="e-desc" name="description" rows="3" placeholder="Brief description..." maxlength="300"></textarea>
+                    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                        <span id="e-desc-err" style="font-size:11px;color:#ef4444;display:none;"></span>
+                        <span id="e-desc-count" style="font-size:11px;color:var(--text-muted);margin-left:auto;">0/300</span>
+                    </div>
+                </div>
+                <div class="modal-section-label" style="margin-top:8px;">Schedule</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="e-start">Start Date & Time <span class="label-required">*</span></label>
+                        <input type="datetime-local" id="e-start" name="start_date" required oninput="updateSchedulePreview('e')">
+                        <span id="e-start-preview" style="font-size:11.5px;color:var(--accent);font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                        <span style="font-size:11px;color:var(--text-muted);">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Must be at least 5 minutes from now.
+                    </span>
+                    </div>
+                    <div class="form-group">
+                        <label for="e-end">End Date & Time <span class="label-required">*</span></label>
+                        <input type="datetime-local" id="e-end" name="end_date" required oninput="updateSchedulePreview('e')">
+                        <span id="e-end-preview" style="font-size:11.5px;color:var(--accent);font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                    </div>
+                </div>
+                <div id="e-duration" style="display:none;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--accent-dim);border-radius:7px;padding:7px 12px;margin-bottom:4px;text-align:center;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeEditModal()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel
+                    </button>
+                    <button type="submit" class="btn-primary" id="editSubmitBtn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CREATE ELECTION MODAL -->
+    <div class="modal-overlay" id="createModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div><h3>Create New Election</h3><p>Fill in the details to set up a new election.</p></div>
+                <button class="modal-close" onclick="closeModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div id="modal-alert" class="modal-alert" style="display:none;"></div>
+            <form id="createElectionForm">
+                <div class="modal-section-label">Basic Information</div>
+                <div class="form-group">
+                    <label for="m-title">Election Title <span class="label-required">*</span></label>
+                    <input type="text" id="m-title" name="title" required placeholder="e.g. Student Council Election 2024-2025" maxlength="150">
+                    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                        <span id="m-title-err" style="font-size:11px;color:#ef4444;display:none;"></span>
+                        <span id="m-title-count" style="font-size:11px;color:var(--text-muted);margin-left:auto;">0/150</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="m-desc">Description <span style="font-weight:400;font-size:12px;color:var(--text-muted);">— optional</span></label>
+                    <textarea id="m-desc" name="description" rows="3" placeholder="Brief description of the election..." maxlength="300"></textarea>
+                    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+                        <span id="m-desc-err" style="font-size:11px;color:#ef4444;display:none;"></span>
+                        <span id="m-desc-count" style="font-size:11px;color:var(--text-muted);margin-left:auto;">0/300</span>
+                    </div>
+                </div>
+                <div class="modal-section-label" style="margin-top:8px;">Schedule</div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="m-start">Start Date & Time <span class="label-required">*</span></label>
+                        <input type="datetime-local" id="m-start" name="start_date" required oninput="updateSchedulePreview('m')">
+                        <span id="m-start-preview" style="font-size:11.5px;color:var(--accent);font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                        <span style="font-size:11px;color:var(--text-muted);">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Must be at least 5 minutes from now.
+                    </span>
+                    </div>
+                    <div class="form-group">
+                        <label for="m-end">End Date & Time <span class="label-required">*</span></label>
+                        <input type="datetime-local" id="m-end" name="end_date" required oninput="updateSchedulePreview('m')">
+                        <span id="m-end-preview" style="font-size:11.5px;color:var(--accent);font-weight:600;margin-top:4px;display:block;min-height:16px;"></span>
+                    </div>
+                </div>
+                <div id="m-duration" style="display:none;font-size:12px;font-weight:600;color:var(--text-muted);background:var(--accent-dim);border-radius:7px;padding:7px 12px;margin-bottom:4px;text-align:center;"></div>
+                <div class="modal-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel
+                    </button>
+                    <button type="submit" class="btn-primary" id="submitBtn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> Create Election
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ARCHIVE CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="archiveModal">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header" style="padding:24px 28px 18px;border-bottom:none;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="width:40px;height:40px;border-radius:10px;background:rgba(220,38,38,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                    </div>
+                    <div>
+                        <h3 style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:2px;">Archive Election</h3>
+                        <p style="font-size:12.5px;color:var(--text-muted);">This will move the election to the Archived tab.</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeArchiveModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div style="padding:0 28px 28px;">
+                <div class="alert-error" style="margin-bottom:24px;font-size:13.5px;padding:14px 16px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    You are about to archive <strong id="archive-election-title"></strong>. It will be hidden from Election History but can be restored later.
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn-secondary" style="padding:10px 20px;font-size:13.5px;" onclick="closeArchiveModal()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel
+                    </button>
+                    <button id="archive-confirm-btn" class="btn-delete" style="padding:10px 20px;font-size:13.5px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> Archive
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESTORE CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="restoreModal">
+        <div class="modal" style="max-width:580px;">
+            <div class="modal-header" style="padding:24px 28px 18px;">
+                <div><h3 style="font-size:17px;">Restore Election</h3><p>This will move the election back to Election History.</p></div>
+                <button class="modal-close" onclick="closeRestoreModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div style="padding:24px 28px 32px;">
+                <div style="margin-bottom:24px;font-size:14px;padding:14px 18px;background:#dcfce7;color:#166534;border-left:4px solid #16a34a;border-radius:9px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    You are about to restore <strong id="restore-election-title"></strong>. It will reappear in Election History.
+                </div>
+                <div class="modal-actions" style="border-top:none;margin-top:0;padding-top:0;gap:10px;">
+                    <button class="btn-secondary" style="padding:10px 22px;font-size:14px;" onclick="closeRestoreModal()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel
+                    </button>
+                    <button id="restore-confirm-btn" class="btn-approve" style="padding:10px 22px;font-size:14px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg> Restore
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- START ELECTION CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="startConfirmBox" style="display:none;">
+        <div class="modal" style="max-width:480px;">
+            <div class="modal-header" style="padding:24px 28px 18px;border-bottom:none;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <div style="width:40px;height:40px;border-radius:10px;background:rgba(22,163,74,0.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    </div>
+                    <div>
+                        <h3 style="font-size:16px;font-weight:800;color:var(--text);margin-bottom:2px;">Start Election</h3>
+                        <p style="font-size:12.5px;color:var(--text-muted);">This will immediately activate the election.</p>
+                    </div>
+                </div>
+                <button class="modal-close" onclick="closeStartConfirm()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div style="padding:0 28px 28px;">
+                <div style="margin-bottom:24px;font-size:13.5px;padding:14px 16px;background:rgba(22,163,74,0.08);color:#166534;border:1px solid rgba(22,163,74,0.25);border-radius:10px;line-height:1.6;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    You are about to start <strong id="startConfirmName"></strong>. Voters will be able to cast their votes immediately.
+                </div>
+                <div style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button class="btn-secondary" style="padding:10px 20px;font-size:13.5px;" onclick="closeStartConfirm()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel
+                    </button>
+                    <button id="startConfirmBtn" class="btn-approve" style="padding:10px 20px;font-size:13.5px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Election
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- END ELECTION CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="endConfirmBox" style="display:none;">
+        <div class="modal" style="max-width:580px;">
+            <div class="modal-header" style="padding:24px 28px 18px;">
+                <div><h3 style="font-size:17px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="16" x2="9" y2="16"/></svg>End Election
+                </h3><p>This action cannot be undone.</p></div>
+                <button class="modal-close" onclick="closeEndConfirm()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+            <div style="padding:24px 28px 32px;">
+                <div class="alert-error" style="margin-bottom:24px;font-size:14px;padding:14px 18px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    You are about to end <strong id="endConfirmName"></strong>. Voters will no longer be able to cast their votes.
+                </div>
+                <div class="modal-actions" style="border-top:none;margin-top:0;padding-top:0;gap:10px;">
+                    <button class="btn-secondary" style="padding:10px 22px;font-size:14px;" onclick="closeEndConfirm()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel
+                    </button>
+                    <button id="endConfirmBtn" class="btn-delete" style="padding:10px 22px;font-size:14px;cursor:pointer;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> End Election
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DELETE CONFIRMATION MODAL -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal" style="max-width:580px;">
+            <div class="modal-header" style="padding:24px 28px 18px;">
+                <div><h3 style="font-size:17px;">Delete Election</h3><p>This action cannot be undone.</p></div>
+                <button class="modal-close" onclick="closeDeleteModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+            </div>
+            <div style="padding:24px 28px 32px;">
+                <div class="alert-error" style="margin-bottom:24px;font-size:14px;padding:14px 18px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:6px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    You are about to permanently delete <strong id="delete-election-title"></strong>. All associated votes, candidates, and positions will also be deleted.
+                </div>
+                <div class="modal-actions" style="border-top:none;margin-top:0;padding-top:0;gap:10px;">
+                    <button class="btn-secondary" style="padding:10px 22px;font-size:14px;" onclick="closeDeleteModal()">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Cancel
+                    </button>
+                    <button id="delete-confirm-btn" class="btn-delete" style="padding:10px 22px;font-size:14px;">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg> Delete Permanently
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const PER_PAGE = 10;
+    function paginate(rowClass, paginationId, page) {
+        const rows = document.querySelectorAll('.' + rowClass);
+        const totalPages = Math.ceil(rows.length / PER_PAGE);
+        const start = (page - 1) * PER_PAGE;
+        rows.forEach((r, i) => r.style.display = (i >= start && i < start + PER_PAGE) ? '' : 'none');
+        const wrap = document.getElementById(paginationId);
+        if (totalPages <= 1) { wrap.innerHTML = ''; return; }
+        let html = '';
+        for (let i = 1; i <= totalPages; i++)
+            html += `<button class="page-btn${i === page ? ' active' : ''}" onclick="paginate('${rowClass}','${paginationId}',${i})">${i}</button>`;
+        wrap.innerHTML = html;
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        paginate('ongoing-row', 'ongoing-pagination', 1);
+        paginate('history-row', 'history-pagination', 1);
+        paginate('archived-row', 'archived-pagination', 1);
+    });
+
+    function switchTab(tabName) {
+        document.querySelectorAll('.sub-tab').forEach(t => t.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        document.getElementById(tabName + '-tab').classList.add('active');
+    }
+
+    function openModal() {
+        document.getElementById('createModal').style.display='flex';
+        document.body.style.overflow='hidden';
+        document.getElementById('m-title').focus();
+        // Pre-fill defaults: start = now+10min, end = now+1day+10min
+        const now = new Date();
+        const start = new Date(now.getTime() + 10 * 60000);
+        const end   = new Date(now.getTime() + 24 * 60 * 60000 + 10 * 60000);
+        document.getElementById('m-start').value = toLocalISO(start);
+        document.getElementById('m-end').value   = toLocalISO(end);
+        updateSchedulePreview('m');
+    }
+    function closeModal() {
+        document.getElementById('createModal').style.display='none';
+        document.body.style.overflow='';
+        document.getElementById('createElectionForm').reset();
+        document.getElementById('modal-alert').style.display='none';
+        document.getElementById('m-start-preview').textContent='';
+        document.getElementById('m-end-preview').textContent='';
+        document.getElementById('m-duration').style.display='none';
+    }
+    function closeModalOutside(e) { if (e.target.id==='createModal') closeModal(); }
+
+    function openEditModal(btn) {
+        document.getElementById('e-id').value = btn.dataset.id;
+        document.getElementById('e-title').value = btn.dataset.title;
+        document.getElementById('e-desc').value = btn.dataset.desc;
+        document.getElementById('e-start').value = btn.dataset.start;
+        document.getElementById('e-end').value = btn.dataset.end;
+        const locked = btn.dataset.status === 'active' || btn.dataset.status === 'ended';
+        document.getElementById('e-start').disabled = locked;
+        document.getElementById('e-end').disabled = locked;
+        const warning = document.getElementById('edit-modal-warning');
+        if (locked) { document.getElementById('edit-status-label').textContent = btn.dataset.status; warning.style.display = 'block'; }
+        else { warning.style.display = 'none'; }
+        document.getElementById('edit-modal-alert').style.display = 'none';
+        document.getElementById('e-title-count').textContent = (btn.dataset.title || '').length + '/150';
+        document.getElementById('e-desc-count').textContent  = (btn.dataset.desc  || '').length + '/300';
+        updateSchedulePreview('e');
+        document.getElementById('editModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeEditModal() { document.getElementById('editModal').style.display='none'; document.body.style.overflow=''; document.getElementById('editElectionForm').reset(); }
+    function closeEditModalOutside(e) { if (e.target.id==='editModal') closeEditModal(); }
+
+    function doArchive(btn) {
+        document.getElementById('archive-election-title').textContent = btn.dataset.title;
+        document.getElementById('archive-confirm-btn').onclick = () => window.location.href = btn.dataset.url;
+        document.getElementById('archiveModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeArchiveModal() { document.getElementById('archiveModal').style.display = 'none'; document.body.style.overflow = ''; }
+
+    function doRestore(btn) {
+        document.getElementById('restore-election-title').textContent = btn.dataset.title;
+        document.getElementById('restore-confirm-btn').onclick = () => window.location.href = btn.dataset.url;
+        document.getElementById('restoreModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeRestoreModal() { document.getElementById('restoreModal').style.display = 'none'; document.body.style.overflow = ''; }
+
+    function doDelete(btn) {
+        document.getElementById('delete-election-title').textContent = btn.dataset.title;
+        document.getElementById('delete-confirm-btn').onclick = () => window.location.href = btn.dataset.url;
+        document.getElementById('deleteModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeDeleteModal() { document.getElementById('deleteModal').style.display = 'none'; document.body.style.overflow = ''; }
+
+    function showStartConfirm(btn) {
+        const id = btn.dataset.id;
+        const title = btn.dataset.title;
+        document.getElementById('startConfirmName').textContent = title;
+        document.getElementById('startConfirmBtn').onclick = () => window.location.href = '/admin/start-election/' + id;
+        document.getElementById('startConfirmBox').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeStartConfirm() { document.getElementById('startConfirmBox').style.display = 'none'; document.body.style.overflow = ''; }
+
+    function showEndConfirm(btn) {
+        const id = btn.dataset.id;
+        const title = btn.dataset.title;
+        document.getElementById('endConfirmName').textContent = title;
+        document.getElementById('endConfirmBtn').onclick = () => window.location.href = '/admin/end-election/' + id;
+        document.getElementById('endConfirmBox').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeEndConfirm() { document.getElementById('endConfirmBox').style.display = 'none'; document.body.style.overflow = ''; }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            closeModal(); closeEditModal(); closeArchiveModal(); closeRestoreModal(); closeDeleteModal(); closeEndConfirm(); closeStartConfirm();
+        }
+    });
+
+    // Schedule preview helpers
+    function toLocalISO(date) {
+        const pad = n => String(n).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+    }
+
+    function formatPreview(val) {
+        if (!val) return '';
+        const d = new Date(val);
+        if (isNaN(d)) return '';
+        return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' })
+             + ' · '
+             + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+    }
+
+    function formatDuration(ms) {
+        if (ms <= 0) return null;
+        const totalMins = Math.floor(ms / 60000);
+        const days  = Math.floor(totalMins / 1440);
+        const hours = Math.floor((totalMins % 1440) / 60);
+        const mins  = totalMins % 60;
+        const parts = [];
+        if (days)  parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+        if (hours) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+        if (mins)  parts.push(`${mins} min${mins !== 1 ? 's' : ''}`);
+        return parts.join(', ');
+    }
+
+    function updateSchedulePreview(prefix) {
+        const startVal = document.getElementById(prefix + '-start').value;
+        const endVal   = document.getElementById(prefix + '-end').value;
+        const startPrev = document.getElementById(prefix + '-start-preview');
+        const endPrev   = document.getElementById(prefix + '-end-preview');
+        const durEl     = document.getElementById(prefix + '-duration');
+        if (startPrev) startPrev.textContent = formatPreview(startVal);
+        if (endPrev)   endPrev.textContent   = formatPreview(endVal);
+        if (durEl && startVal && endVal) {
+            const ms  = new Date(endVal) - new Date(startVal);
+            const dur = formatDuration(ms);
+            if (dur) { durEl.textContent = '⏱ Duration: ' + dur; durEl.style.display = 'block'; }
+            else { durEl.style.display = 'none'; }
+        } else if (durEl) { durEl.style.display = 'none'; }
+    }
+
+    // Character counters
+    function bindCounter(inputId, countId) {
+        const el = document.getElementById(inputId);
+        const counter = document.getElementById(countId);
+        if (!el || !counter) return;
+        el.addEventListener('input', () => { counter.textContent = el.value.length + '/' + el.maxLength; });
+    }
+    bindCounter('m-title', 'm-title-count');
+    bindCounter('m-desc',  'm-desc-count');
+    bindCounter('e-title', 'e-title-count');
+    bindCounter('e-desc',  'e-desc-count');
+
+    function validateElectionForm(titleId, descId, startId, endId, titleErrId, descErrId) {
+        const title = document.getElementById(titleId).value.trim();
+        const desc  = document.getElementById(descId).value.trim();
+        const start = document.getElementById(startId).value;
+        const end   = document.getElementById(endId).value;
+        const now   = new Date();
+        let valid = true;
+
+        // Title
+        const titleErr = document.getElementById(titleErrId);
+        if (!title) {
+            titleErr.textContent = 'Title is required.'; titleErr.style.display = 'block'; valid = false;
+        } else if (title.length < 5) {
+            titleErr.textContent = 'Title must be at least 5 characters.'; titleErr.style.display = 'block'; valid = false;
+        } else if (title.length > 150) {
+            titleErr.textContent = 'Title cannot exceed 150 characters.'; titleErr.style.display = 'block'; valid = false;
+        } else { titleErr.style.display = 'none'; }
+
+        // Description
+        const descErr = document.getElementById(descErrId);
+        if (desc.length > 300) {
+            descErr.textContent = 'Description cannot exceed 300 characters.'; descErr.style.display = 'block'; valid = false;
+        } else { descErr.style.display = 'none'; }
+
+        // Dates
+        const alertEl = titleId === 'm-title' ? document.getElementById('modal-alert') : document.getElementById('edit-modal-alert');
+        if (!start || !end) {
+            alertEl.textContent = '⚠️ Start and end dates are required.'; alertEl.style.display = 'block'; valid = false;
+        } else if (new Date(start) < new Date(now.getTime() + 5 * 60000)) {
+            alertEl.textContent = '⚠️ Start date must be at least 5 minutes from now.'; alertEl.style.display = 'block'; valid = false;
+        } else if (new Date(end) <= new Date(start)) {
+            alertEl.textContent = '⚠️ End date must be after the start date.'; alertEl.style.display = 'block'; valid = false;
+        } else if ((new Date(end) - new Date(start)) < 3600000) {
+            alertEl.textContent = '⚠️ Election must run for at least 1 hour.'; alertEl.style.display = 'block'; valid = false;
+        } else { alertEl.style.display = 'none'; }
+
+        return valid;
+    }
+
+    document.getElementById('createElectionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!validateElectionForm('m-title','m-desc','m-start','m-end','m-title-err','m-desc-err')) return;
+        const btn = document.getElementById('submitBtn');
+        btn.disabled = true; btn.textContent = 'Creating...';
+        const res = await fetch('{{ url_for("admin.create_election") }}', { method: 'POST', body: new FormData(this) });
+        const json = await res.json();
+        if (json.success) { closeModal(); location.reload(); }
+        else { const a = document.getElementById('modal-alert'); a.textContent = json.error; a.style.display = 'block'; btn.disabled = false; btn.textContent = 'Create Election'; }
+    });
+
+    document.getElementById('editElectionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const locked = document.getElementById('e-start').disabled;
+        if (!locked && !validateElectionForm('e-title','e-desc','e-start','e-end','e-title-err','e-desc-err')) return;
+        const btn = document.getElementById('editSubmitBtn');
+        btn.disabled = true; btn.textContent = 'Saving...';
+        const id = document.getElementById('e-id').value;
+        const res = await fetch(`/admin/edit-election/${id}`, { method: 'POST', body: new FormData(this) });
+        const json = await res.json();
+        if (json.success) { closeEditModal(); location.reload(); }
+        else { const a = document.getElementById('edit-modal-alert'); a.textContent = json.error; a.style.display = 'block'; btn.disabled = false; btn.textContent = 'Save Changes'; }
+    });
+</script>
+{% endblock %}

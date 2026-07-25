@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Votely</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('admin.static', filename='dashboard.css') }}">
+    <script>
+        // Apply light mode before paint to avoid flash - Light is default
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+        // Pre-collapse sidebar before paint to avoid layout jump
+        if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth > 900) {
+            document.documentElement.classList.add('sidebar-pre-collapsed');
+        }
+    </script>
+    <style>
+        html.sidebar-pre-collapsed #sidebar { width: 68px !important; }
+        html.sidebar-pre-collapsed #mainWrap { margin-left: 68px !important; }
+    </style>
+    <style>
+        /* Stats bar */
+        .stats-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+        .stat-pill { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px 24px; display: flex; align-items: center; gap: 16px; box-shadow: var(--shadow); }
+        .stat-pill-num { font-size: 32px; font-weight: 800; color: var(--accent); line-height: 1; }
+        .stat-pill-label { font-size: 13px; color: var(--text-muted); font-weight: 600; line-height: 1.4; }
+
+        /* ── Active election hero ── */
+        .election-hero {
+            background: var(--card); border-radius: var(--radius);
+            border: 1px solid var(--border); box-shadow: var(--shadow);
+            padding: 22px 24px; display: flex; flex-direction: column; gap: 14px;
+            margin-bottom: 20px; transition: border-color 0.2s;
+        }
+        .election-hero.urgent { border-color: #f97316; }
+        .hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+        .hero-title { font-size: 18px; font-weight: 800; color: var(--text); }
+        .hero-desc { font-size: 13px; color: var(--text-muted); max-width: 640px; word-wrap: break-word; overflow-wrap: break-word; }
+        .hero-meta { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; color: var(--text-muted); }
+        .hero-meta span { display: flex; align-items: center; gap: 5px; }
+        .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+        .hero-actions .vote-btn { padding: 10px 22px; font-size: 13px; }
+        .hero-actions .results-btn { padding: 10px 22px; font-size: 13px; }
+        .hero-voted { font-size: 13px; color: #166534; background: #dcfce7; padding: 8px 14px; border-radius: 8px; }
+        .hero-progress { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted); }
+        .hero-progress .progress-bar { height: 6px; }
+        .countdown { font-size: 12px; font-weight: 700; }
+        .countdown.urgent { color: #f97316; }
+
+        /* Section labels */
+        .section-label-row {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .section-label-text {
+            font-size: 11px; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.7px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .section-label-badge {
+            font-size: 11px; font-weight: 700; color: var(--accent);
+            background: var(--accent-dim); padding: 2px 8px; border-radius: 20px;
+        }
+
+        /* ── Ended elections note ── */
+        .ended-note {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: var(--radius); box-shadow: var(--shadow);
+            padding: 16px 20px;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            font-size: 13px; color: var(--text-muted);
+        }
+        .ended-note a {
+            font-size: 13px; font-weight: 600; color: var(--accent);
+            text-decoration: none; display: flex; align-items: center; gap: 5px;
+            white-space: nowrap;
+        }
+        .ended-note a:hover { opacity: 0.8; }
+
+        /* ── Ended elections grid (hidden, moved to history) ── */
+        .elections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+        .election-card {
+            background: var(--card); border-radius: var(--radius);
+            border: 1px solid var(--border); box-shadow: var(--shadow);
+            padding: 20px; display: flex; flex-direction: column; gap: 10px;
+        }
+        .election-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .election-card-header h3 { font-size: 14px; font-weight: 700; color: var(--text); }
+        .election-desc { font-size: 13px; color: var(--text-muted); }
+        .election-meta { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-muted); }
+        .voted-indicator { font-size: 13px; color: #166534; background: #dcfce7; padding: 8px 12px; border-radius: 8px; }
+        .vote-progress { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text-muted); }
+        .progress-bar { background: var(--border); border-radius: 10px; height: 6px; overflow: hidden; }
+        .progress-fill { background: var(--accent); height: 100%; border-radius: 10px; transition: width 0.6s ease; }
+        .vote-btn { background: var(--gradient); color: white; padding: 10px 20px; border-radius: var(--radius-sm); text-decoration: none; font-size: 13px; font-weight: 600; text-align: center; transition: opacity 0.2s; margin-top: auto; display: block; }
+        .vote-btn:hover { opacity: 0.88; }
+        .results-btn { background: #ede9fe; color: #6d28d9; padding: 10px 20px; border-radius: var(--radius-sm); text-decoration: none; font-size: 13px; font-weight: 600; text-align: center; transition: background 0.2s, color 0.2s; display: block; border: 1.5px solid #c4b5fd; }
+        .results-btn:hover { background: #ddd6fe; color: #5b21b6; }
+        .badge-voted { background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+        .badge-active-user { background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .badge-urgent { background: #fff7ed; color: #c2410c; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+        .my-votes { margin-top: 4px; border-top: 1px solid var(--border); padding-top: 8px; }
+        .my-votes-title { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .my-vote-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--border); }
+        .my-vote-row:last-child { border-bottom: none; }
+        .my-vote-position { color: var(--text-muted); font-size: 12px; }
+        .my-vote-candidate { display: flex; align-items: center; gap: 6px; font-weight: 600; color: var(--text); }
+        .my-vote-photo { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+        .my-vote-initials { width: 24px; height: 24px; border-radius: 50%; background: var(--gradient); color: #fff; font-size: 9px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+        .center-card { text-align: center; padding: 40px 24px; }
+        .no-election-icon { margin-bottom: 14px; }
+        .center-card h3 { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+        .center-card p { color: var(--text-muted); font-size: 13px; }
+        .ended-section-label { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 12px; }
+
+        /* Session warning banner */
+        .session-warning { position: fixed; bottom: 24px; right: 24px; background: #1e2535; border: 1px solid #f97316; border-radius: 12px; padding: 14px 20px; font-size: 13px; font-weight: 600; color: #fdba74; z-index: 9999; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+
+        /* Confirmation modal */
+        .confirm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9998; display: none; align-items: center; justify-content: center; }
+        .confirm-overlay.active { display: flex; }
+        .confirm-box { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); padding: 28px; max-width: 400px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+        .confirm-box h3 { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+        .confirm-box p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+        .confirm-actions { display: flex; gap: 10px; }
+        .confirm-cancel { flex: 1; padding: 10px; background: transparent; border: 1.5px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .confirm-submit { flex: 1; padding: 10px; background: var(--gradient); border: none; border-radius: var(--radius-sm); color: #fff; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px); background: #166534; color: #dcfce7; padding: 12px 24px; border-radius: 10px; font-size: 13px; font-weight: 600; z-index: 9999; transition: transform 0.3s ease; pointer-events: none; }
+        .toast.show { transform: translateX(-50%) translateY(0); }
+
+        /* Bell notification */
+        .notif-wrap { position: relative; }
+        .notif-btn { background: none; border: none; cursor: pointer; padding: 6px; position: relative; display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+        .notif-btn svg { width: 22px; height: 22px; }
+        .notif-badge { position: absolute; top: 2px; right: 2px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 5px; min-width: 16px; text-align: center; display: none; }
+        .notif-dropdown { position: absolute; top: calc(100% + 10px); right: 0; width: 320px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 8px 32px rgba(0,0,0,0.18); z-index: 9999; display: none; overflow: hidden; }
+        .notif-dropdown.open { display: block; }
+        .notif-header { padding: 12px 16px; font-size: 13px; font-weight: 700; color: var(--text); border-bottom: 1px solid var(--border); }
+        .notif-list { max-height: 320px; overflow-y: auto; }
+        .notif-item { padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 13px; color: var(--text); display: flex; gap: 10px; align-items: flex-start; }
+        .notif-item.unread { background: #eff6ff; }
+        .notif-item:last-child { border-bottom: none; }
+        .notif-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+        .notif-msg { flex: 1; line-height: 1.4; }
+        .notif-time { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+        .notif-empty { padding: 24px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+        @media (max-width: 600px) {
+            .stats-summary { gap: 10px; }
+            .stat-pill { padding: 10px 14px; }
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <div class="sidebar-logo-icon">
+                <img src="{{ url_for('admin.static', filename='uploads/vote_logo.jpg') }}" alt="Logo" style="width:38px;height:38px;object-fit:cover;border-radius:10px;display:block;">
+            </div>
+            <div class="sidebar-logo-text">
+                <strong>Votely</strong>
+                <span>Voter Panel</span>
+            </div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <p class="nav-label">Menu</p>
+            <a href="{{ url_for('user.dashboard') }}" class="nav-link active">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></span>
+                <span class="nav-label-text">Elections</span>
+                <span class="nav-tooltip">Elections</span>
+            </a>
+            <a href="{{ url_for('user.history') }}" class="nav-link">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                <span class="nav-label-text">My History</span>
+                <span class="nav-tooltip">My History</span>
+            </a>
+            <a href="{{ url_for('user.profile') }}" class="nav-link">
+                <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                <span class="nav-label-text">Profile</span>
+                <span class="nav-tooltip">Profile</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="sidebar-user">
+                {% if profile_photo %}
+                <img src="{{ url_for('user.static', filename='profile_photos/' + profile_photo) }}" alt="Profile photo" style="width:36px;height:36px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+                {% else %}
+                <div class="sidebar-avatar">{{ username[0].upper() if username else 'U' }}</div>
+                {% endif %}
+                <div class="sidebar-user-info">
+                    <strong>{{ username }}</strong>
+                    <span>Voter</span>
+                </div>
+            </div>
+            <a href="{{ url_for('auth.logout_user') }}" class="sidebar-logout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span class="logout-text">Logout</span>
+                <span class="nav-tooltip">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <div class="main-wrap" id="mainWrap">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()" aria-label="Toggle menu">
+                    <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+                </button>
+                <div class="topbar-title-wrap">
+                    <span class="topbar-eyebrow">Voter Panel</span>
+                    <h1 class="topbar-title">Elections</h1>
+                </div>
+            </div>
+            <div class="topbar-right">
+                <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark/light mode">
+                    <span class="icon-sun">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    </span>
+                    <span class="icon-moon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                    </span>
+                </button>
+                <div class="notif-wrap">
+                    <button class="notif-btn" id="notifBtn" onclick="toggleNotif()" aria-label="Notifications">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        <span class="notif-badge" id="notifBadge"></span>
+                    </button>
+                    <div class="notif-dropdown" id="notifDropdown">
+                        <div class="notif-header"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>Notifications</div>
+                        <div class="notif-list" id="notifList"><div class="notif-empty">No notifications yet.</div></div>
+                    </div>
+                </div>
+                <div class="topbar-user">
+                    {% if profile_photo %}
+                    <img src="{{ url_for('user.static', filename='profile_photos/' + profile_photo) }}" alt="Profile photo" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;">
+                    {% else %}
+                    <div class="topbar-avatar">{{ username[0].upper() if username else 'U' }}</div>
+                    {% endif %}
+                    <div class="topbar-user-info">
+                        <span class="topbar-user-name">{{ username }}</span>
+                        <span class="topbar-user-role">Voter</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="content">
+            {% set active_elections = elections | selectattr('status', 'equalto', 'active') | list %}
+            {% set ended_elections  = elections | selectattr('status', 'equalto', 'ended')  | list %}
+            {% set active_count = active_elections | length %}
+            {% set ended_count  = ended_elections  | length %}
+            {% set voted_count  = elections | selectattr('fully_voted') | list | length %}
+            {% set pending_count = active_elections | selectattr('fully_voted', 'equalto', false) | list | length %}
+
+            <!-- Stats Summary -->
+            <div class="stats-summary">
+                <div class="stat-pill">
+                    <div class="stat-pill-num">{{ active_count }}</div>
+                    <div class="stat-pill-label">Active<br>Election{{ 's' if active_count != 1 }}</div>
+                </div>
+                <div class="stat-pill">
+                    <div class="stat-pill-num">{{ pending_count }}</div>
+                    <div class="stat-pill-label">Vote<br>Pending</div>
+                </div>
+                <div class="stat-pill">
+                    <div class="stat-pill-num">{{ voted_count }}</div>
+                    <div class="stat-pill-label">Fully<br>Voted</div>
+                </div>
+                <div class="stat-pill">
+                    <div class="stat-pill-num">{{ ended_count }}</div>
+                    <div class="stat-pill-label">Ended<br>Election{{ 's' if ended_count != 1 }}</div>
+                </div>
+            </div>
+
+            {% if not elections %}
+            <div class="card center-card">
+                <div class="no-election-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></div>
+                <h3>No Elections</h3>
+                <p>There are no elections available at the moment.</p>
+            </div>
+
+            {% else %}
+
+            <!-- Active Election Hero -->
+            {% for election in active_elections %}
+            {% set is_urgent = election.end_date and (election.end_date.timestamp() - now_ts) < 3600 %}
+            <div class="election-hero{{ ' urgent' if is_urgent }}" id="hero-{{ loop.index }}">
+                <div class="hero-top">
+                    <div>
+                        <div class="hero-title">{{ election.title }}</div>
+                        {% if election.description %}<div class="hero-desc" style="margin-top:6px;">{{ election.description }}</div>{% endif %}
+                    </div>
+                    {% if election.fully_voted %}
+                    <span class="badge-voted"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><polyline points="20 6 9 17 4 12"/></svg>Voted</span>
+                    {% elif is_urgent %}
+                    <span class="badge-urgent" id="hero-badge-{{ loop.index }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Closing Soon</span>
+                    {% else %}
+                    <span class="badge-active-user" id="hero-badge-{{ loop.index }}">Open</span>
+                    {% endif %}
+                </div>
+                <div class="hero-meta">
+                    <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>{% if election.start_date %}{{ election.start_date.strftime('%b %d, %Y') }} → {% endif %}{{ election.end_date.strftime('%b %d, %Y %I:%M %p') }}</span>
+                    <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>{{ election.total_positions }} position{{ 's' if election.total_positions != 1 }}</span>
+                    <span><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>{{ election.candidate_count }} candidate{{ 's' if election.candidate_count != 1 }}</span>
+                    <span class="countdown{{ ' urgent' if is_urgent }}" id="hero-cd-{{ loop.index }}" data-end="{{ election.end_date.isoformat() }}"></span>
+                </div>
+                {% if election.fully_voted %}
+                <div class="hero-voted"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>You have submitted all your votes for this election.</div>
+                {% if election.my_votes %}
+                <div class="my-votes">
+                    <div class="my-votes-title">My Votes:</div>
+                    {% for vote in election.my_votes %}
+                    <div class="my-vote-row">
+                        <span class="my-vote-position">{{ vote.position_name }}</span>
+                        <span class="my-vote-candidate">
+                            {% if vote.photo %}<img src="/admin/uploads/{{ vote.photo }}" class="my-vote-photo">
+                            {% else %}<div class="my-vote-initials">{{ vote.firstname[0] }}{{ vote.lastname[0] }}</div>{% endif %}
+                            {{ vote.firstname }} {{ vote.lastname }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="hero-actions">
+                    <a href="{{ url_for('user.results', election_id=election.id) }}" class="results-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Live Results</a>
+                </div>
+                {% else %}
+                <div class="hero-progress">
+                    <span>{{ election.total_voted }}/{{ election.total_positions }} positions voted</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width:0%" data-width="{{ (election.total_voted / election.total_positions * 100) if election.total_positions > 0 else 0 }}%"></div>
+                    </div>
+                </div>
+                {% if election.my_votes %}
+                <div class="my-votes">
+                    <div class="my-votes-title">Voted so far:</div>
+                    {% for vote in election.my_votes %}
+                    <div class="my-vote-row">
+                        <span class="my-vote-position">{{ vote.position_name }}</span>
+                        <span class="my-vote-candidate">
+                            {% if vote.photo %}<img src="/admin/uploads/{{ vote.photo }}" class="my-vote-photo">
+                            {% else %}<div class="my-vote-initials">{{ vote.firstname[0] }}{{ vote.lastname[0] }}</div>{% endif %}
+                            {{ vote.firstname }} {{ vote.lastname }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="hero-actions">
+                    <a href="{{ url_for('user.vote_page', election_id=election.id) }}" class="vote-btn">
+                        {% if election.total_voted > 0 %}Continue Voting →{% else %}Vote Now →{% endif %}
+                    </a>
+                    <a href="{{ url_for('user.results', election_id=election.id) }}" class="results-btn"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Live Results</a>
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            {% if not active_elections %}
+            <div class="card center-card" style="margin-bottom:20px;">
+                <div class="no-election-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent);"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="m9 16 2 2 4-4"/></svg></div>
+                <h3>No Active Election</h3>
+                <p>There is no election currently open for voting.</p>
+            </div>
+            {% endif %}
+
+            {% if ended_elections %}
+            <div class="section-label-row">
+                <span class="section-label-text">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                    Ended Elections
+                </span>
+                <span class="section-label-badge">{{ ended_count }} ended</span>
+            </div>
+            <div class="ended-note">
+                <span>Past elections are shown in My History →</span>
+                <a href="{{ url_for('user.history') }}">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    View My History
+                </a>
+            </div>
+            {% endif %}
+
+            {% endif %}
+        </main>
+    </div>
+
+    <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+    <!-- Session Warning -->
+    <div class="session-warning" id="sessionWarning"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:5px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Your session expires in <span id="sessionCountdown">5:00</span>. Save your work.</div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // Theme toggle
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        }
+
+        // Sidebar
+        const sidebar = document.getElementById('sidebar');
+        const wrap    = document.getElementById('mainWrap');
+        const btn     = document.getElementById('menuBtn');
+        if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth > 900) {
+            sidebar.classList.add('collapsed'); wrap.classList.add('expanded'); btn.classList.add('is-open');
+        }
+        // Enable transitions after initial paint to prevent jump on load
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            sidebar.classList.add('ready');
+            wrap.classList.add('ready');
+            document.documentElement.classList.remove('sidebar-pre-collapsed');
+        }));
+        const floatTip = document.createElement('div');
+        floatTip.id = 'sidebar-float-tooltip';
+        floatTip.innerHTML = '<div class="tip-arrow"></div><div class="tip-box"></div>';
+        document.body.appendChild(floatTip);
+        const tipBox = floatTip.querySelector('.tip-box');
+        let tipTimeout;
+        function showTip(el) {
+            if (!sidebar.classList.contains('collapsed')) return;
+            const label = el.querySelector('.nav-tooltip');
+            if (!label) return;
+            const rect = el.getBoundingClientRect();
+            tipBox.textContent = label.textContent.trim();
+            floatTip.style.top  = (rect.top + rect.height / 2 - 15) + 'px';
+            floatTip.style.left = (rect.right + 10) + 'px';
+            clearTimeout(tipTimeout);
+            floatTip.classList.add('visible');
+        }
+        function hideTip() { tipTimeout = setTimeout(() => floatTip.classList.remove('visible'), 80); }
+        document.querySelectorAll('.nav-link, .sidebar-logout').forEach(el => {
+            el.addEventListener('mouseenter', () => showTip(el));
+            el.addEventListener('mouseleave', hideTip);
+        });
+        function toggleSidebar() {
+            const overlay = document.getElementById('sidebar-overlay');
+            if (window.innerWidth <= 900) { sidebar.classList.toggle('open'); overlay.classList.toggle('active'); btn.classList.toggle('is-open', sidebar.classList.contains('open')); }
+            else { sidebar.classList.toggle('collapsed'); wrap.classList.toggle('expanded'); btn.classList.toggle('is-open', sidebar.classList.contains('collapsed')); localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed')); }
+        }
+        function closeSidebar() { sidebar.classList.remove('open'); document.getElementById('sidebar-overlay').classList.remove('active'); btn.classList.remove('is-open'); }
+
+        // Animate progress bars on load
+        requestAnimationFrame(() => {
+            document.querySelectorAll('.progress-fill').forEach(el => {
+                el.style.width = el.dataset.width;
+            });
+        });
+
+        // Countdown timers
+        function formatCountdown(ms) {
+            if (ms <= 0) return 'Closing soon';
+            const h = Math.floor(ms / 3600000);
+            const m = Math.floor((ms % 3600000) / 60000);
+            const s = Math.floor((ms % 60000) / 1000);
+            if (h > 0) return `Closes in ${h}h ${m}m`;
+            if (m > 0) return `Closes in ${m}m ${s}s`;
+            return `Closes in ${s}s`;
+        }
+
+        function updateCountdowns() {
+            document.querySelectorAll('.countdown[data-end]').forEach(el => {
+                const diff = new Date(el.dataset.end).getTime() - Date.now();
+                el.textContent = formatCountdown(diff);
+                const hero = el.closest('.election-hero');
+                const badge = hero ? hero.querySelector('[id^="hero-badge-"]') : null;
+                if (diff <= 3600000 && diff > 0) {
+                    el.classList.add('urgent');
+                    if (hero) hero.classList.add('urgent');
+                    if (badge) { badge.className = 'badge-urgent'; badge.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:middle;margin-right:3px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Closing Soon'; }
+                }
+            });
+        }
+        updateCountdowns();
+        setInterval(updateCountdowns, 1000);
+
+        // Auto-refresh every 60s — pause if session warning is showing
+        setInterval(() => {
+            if (warningEl.style.display === 'none' || !warningEl.style.display) location.reload();
+        }, 60000);
+
+        // Session expiry warning (25 min into 30 min session)
+        const SESSION_MS = 30 * 60 * 1000;
+        const WARN_AT    = 5 * 60 * 1000;
+        const sessionStart = Date.now();
+        const warningEl    = document.getElementById('sessionWarning');
+        const cdEl         = document.getElementById('sessionCountdown');
+
+        function checkSession() {
+            const elapsed   = Date.now() - sessionStart;
+            const remaining = SESSION_MS - elapsed;
+            if (remaining <= WARN_AT) {
+                warningEl.style.display = 'block';
+                const m = Math.floor(remaining / 60000);
+                const s = Math.floor((remaining % 60000) / 1000);
+                cdEl.textContent = `${m}:${String(s).padStart(2,'0')}`;
+            }
+            if (remaining <= 0) window.location.href = '{{ url_for("auth.login") }}';
+        }
+        setInterval(checkSession, 1000);
+
+        // Notifications
+        function toggleNotif() {
+            const dd = document.getElementById('notifDropdown');
+            dd.classList.toggle('open');
+            if (dd.classList.contains('open')) {
+                loadNotifications();
+            }
+        }
+
+        function loadNotifications() {
+            fetch('{{ url_for("user.list_notifications") }}')
+                .then(r => r.json())
+                .then(data => {
+                    const list = document.getElementById('notifList');
+                    const badge = document.getElementById('notifBadge');
+                    if (!data.length) {
+                        list.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+                        badge.style.display = 'none';
+                        return;
+                    }
+                    const unread = data.filter(n => !n.is_read).length;
+                    badge.textContent = unread;
+                    badge.style.display = unread > 0 ? 'block' : 'none';
+                    list.innerHTML = data.map(n => `
+                        <div class="notif-item ${n.is_read ? '' : 'unread'}">
+                            <span class="notif-icon">${n.type === '1h' ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>'}</span>
+                            <div class="notif-msg">
+                                <div>${n.message}</div>
+                                <div class="notif-time">${n.created_at}</div>
+                            </div>
+                        </div>`).join('');
+                    // Mark as read
+                    if (unread > 0) {
+                        fetch('{{ url_for("user.mark_notifications_read") }}', { method: 'POST' })
+                            .then(() => { badge.style.display = 'none'; });
+                    }
+                });
+        }
+
+        // Load badge count on page load
+        fetch('{{ url_for("user.list_notifications") }}')
+            .then(r => r.json())
+            .then(data => {
+                const unread = data.filter(n => !n.is_read).length;
+                const badge = document.getElementById('notifBadge');
+                badge.textContent = unread;
+                badge.style.display = unread > 0 ? 'block' : 'none';
+            });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const wrap = document.querySelector('.notif-wrap');
+            if (!wrap.contains(e.target)) document.getElementById('notifDropdown').classList.remove('open');
+        });
+
+        // Toast
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,53 @@
+{% extends 'superadmin_base.html' %}
+{% block title %}Dashboard — Superadmin{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-header-left">
+        <h2>Overview</h2>
+        <p>Monitor administrators, review audit logs, and manage the system.</p>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-row" style="margin-bottom:24px;">
+    <div class="stat-card total">
+        <div class="stat-num">{{ admin_count }}</div>
+        <div class="stat-label">Admin Accounts</div>
+    </div>
+    <div class="stat-card active-s">
+        <div class="stat-num">{{ active_elections }}</div>
+        <div class="stat-label">Active Elections</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-num">{{ voter_count }}</div>
+        <div class="stat-label">Registered Voters</div>
+    </div>
+</div>
+
+<!-- Quick access cards -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">
+    <div class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;color:var(--accent);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            </div>
+            <h3 style="font-size:15px;font-weight:700;color:var(--text);margin:0;">Manage Admins</h3>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin:0;line-height:1.5;">Create, edit, and delete administrator accounts.</p>
+        <a href="{{ url_for('superadmin.manage_admins') }}" class="btn-primary" style="margin-top:auto;text-align:center;justify-content:center;">Go to Manage Admins</a>
+    </div>
+
+    <div class="card" style="padding:24px;display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:40px;height:40px;border-radius:10px;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;color:var(--accent);">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <h3 style="font-size:15px;font-weight:700;color:var(--text);margin:0;">Admin Logs</h3>
+        </div>
+        <p style="font-size:13px;color:var(--text-muted);margin:0;line-height:1.5;">Inspect admin activity and audit every action taken.</p>
+        <a href="{{ url_for('superadmin.admin_logs') }}" class="btn-primary" style="margin-top:auto;text-align:center;justify-content:center;">View Admin Logs</a>
+    </div>
+</div>
+{% endblock %}

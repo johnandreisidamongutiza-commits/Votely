@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Activity Logs{% endblock %}
+{% block page_title %}Activity Logs{% endblock %}
+
+{% block head %}
+<style>
+    #logs-table-wrap table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    #logs-table-wrap thead tr { background: var(--table-head-bg); }
+    #logs-table-wrap thead th {
+        padding: 11px 15px;
+        text-align: center;
+        font-size: 10.5px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        white-space: nowrap;
+        border-bottom: 1px solid var(--border);
+    }
+    #logs-table-wrap tbody td {
+        padding: 13px 15px;
+        vertical-align: middle;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 0;
+        border-bottom: 1px solid var(--border-light);
+        color: var(--text);
+        font-size: 13px;
+    }
+    #logs-table-wrap tbody tr:last-child td { border-bottom: none; }
+    #logs-table-wrap tbody tr { transition: background 0.1s; }
+    #logs-table-wrap tbody tr:hover { background: var(--table-row-hover); }
+    #logs-table-wrap .page-btn { background: var(--card); color: var(--text-muted); border: 1px solid var(--border); }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="page-header" style="align-items:center;">
+        <div class="page-header-left">
+            <h2>Activity Logs</h2>
+            <p>Track voter actions across elections</p>
+        </div>
+        <div class="results-select-wrap" style="margin-bottom:0;align-items:center;">
+            <label>Filter by Election</label>
+            <select id="logsElectionFilter" onchange="loadLogs(1)" style="max-width:280px;">
+                <option value="">All Elections</option>
+                {% for election in elections %}
+                <option value="{{ election.id }}">{{ election.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+        <div id="logs-table-wrap" style="padding:0;">
+            <p class="empty-msg" style="padding:20px 24px;">Loading logs...</p>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentPage = 1;
+
+    function loadLogs(page = 1) {
+        currentPage = page;
+        const electionId = document.getElementById('logsElectionFilter').value;
+        const wrap = document.getElementById('logs-table-wrap');
+        wrap.innerHTML = '<p class="empty-msg" style="padding:20px 24px;">Loading...</p>';
+        const url = `/admin/logs-data?page=${page}${electionId ? '&election_id=' + electionId : ''}`;
+        fetch(url).then(r => r.json()).then(data => {
+            if (!data.logs.length) {
+                wrap.innerHTML = '<p class="empty-msg" style="padding:20px 24px;">No activity logs found.</p>';
+                return;
+            }
+            let html = `<div class="table-wrap" style="border:none;border-radius:0;">
+                <table><colgroup>
+                    <col style="width:17%"><col style="width:12%"><col style="width:15%">
+                    <col style="width:20%"><col style="width:20%"><col style="width:16%">
+                </colgroup>
+                <thead><tr>
+                    <th>Voter</th><th>Student ID</th><th>Action</th>
+                    <th>Election</th><th>Details</th><th>Date &amp; Time</th>
+                </tr></thead><tbody>`;
+
+            data.logs.forEach(log => {
+                const badge = log.action === 'Submitted Vote'
+                    ? `<span class="badge badge-active">${log.action}</span>`
+                    : `<span class="badge badge-draft">${log.action}</span>`;
+                html += `<tr>
+                    <td><strong>${log.firstname} ${log.lastname}</strong></td>
+                    <td><span class="id-code">${log.user_id}</span></td>
+                    <td>${badge}</td>
+                    <td title="${log.election_title || ''}">${log.election_title || '-'}</td>
+                    <td title="${log.details || ''}">${log.details || '-'}</td>
+                    <td>${log.created_at}</td>
+                </tr>`;
+            });
+
+            html += '</tbody></table></div>';
+
+            if (data.total_pages > 1) {
+                html += '<div class="pagination-wrap">';
+                for (let i = 1; i <= data.total_pages; i++)
+                    html += `<button class="page-btn${i === data.page ? ' active' : ''}" onclick="loadLogs(${i})">${i}</button>`;
+                html += '</div>';
+            }
+            wrap.innerHTML = html;
+        });
+    }
+
+    loadLogs();
+</script>
+{% endblock %}
